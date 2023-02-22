@@ -29,7 +29,6 @@ class Application:
 		if opengl:
 			glEnable(GL_DEPTH_TEST)
 			glEnable(GL_CULL_FACE)
-			glEnable(GL_BLEND)
 
 		pygame.display.flip()
 		pygame.display.set_caption(title)

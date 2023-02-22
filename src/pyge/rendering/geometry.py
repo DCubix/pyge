@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Dict, Tuple, List
 
 import ctypes, re, itertools
 import numpy as np
@@ -128,24 +128,41 @@ class Mesh:
 		with open(file_path, 'r') as fp:
 			lines = fp.readlines()
 		
-		raw_positions = []
-		raw_normals = []
-		raw_tex_coords = []
-		raw_faces = [] # [(vi, ti, ni), ...]
+		raw_meshes = []
+		raw_positions = {}
+		raw_normals = {}
+		raw_tex_coords = {}
+		raw_faces = {} # [(vi, ti, ni), ...]
+
+		tmp_last_position_id = 0
+		tmp_last_normal_id = 0
+		tmp_last_tex_coord_id = 0
+		last_position_id = 0
+		last_normal_id = 0
+		last_tex_coord_id = 0
+
+		current_mesh = 'mesh'
+		raw_meshes.append(current_mesh)
 
 		for line in lines:
 			line = line.strip()
 			tok = re.split(r'\s', line)
 
+			if not current_mesh in raw_positions:
+				raw_positions[current_mesh] = []
+				raw_normals[current_mesh] = []
+				raw_tex_coords[current_mesh] = []
+				raw_faces[current_mesh] = []
+
 			if tok[0] == 'v':
 				values = [float(v) for v in tok[1:]]
-				raw_positions.append(tuple(values))
+				raw_positions[current_mesh].append(tuple(values))
 			elif tok[0] == 'vt':
 				values = [float(v) for v in tok[1:]]
-				raw_tex_coords.append(tuple(values))
+				raw_tex_coords[current_mesh].append(tuple(values))
 			elif tok[0] == 'vn':
 				values = [float(v) for v in tok[1:]]
-				raw_normals.append(tuple(values))
+				raw_normals[current_mesh].append(tuple(values))
 			elif tok[0] == 'f':
 				face_defs = tok[1:]
 				
@@ -153,38 +170,85 @@ class Mesh:
 					fields = [int(v) if len(v) > 0 else None for v in fdef.split('/')]
 					
 					if len(fields) == 1: # pos pos pos ...
-						raw_faces.append((fields[0]-1, None, None))
+						pos_id = fields[0]-1
+
+						raw_faces[current_mesh].append((pos_id-tmp_last_position_id, None, None))
+
+						tmp_last_position_id = max(tmp_last_position_id, pos_id)
 					elif len(fields) == 2: # pos/tex pos/tex pos/tex ...
-						raw_faces.append((fields[0]-1, fields[1]-1, None))
+						pos_id = fields[0]-1
+						tex_id = fields[1]-1
+
+						raw_faces[current_mesh].append((pos_id-last_position_id, tex_id-last_tex_coord_id, None))
+
+						tmp_last_position_id = max(tmp_last_position_id, pos_id)
+						tmp_last_tex_coord_id = max(tmp_last_tex_coord_id, tex_id)
 					elif len(fields) == 3:
 						if fields[1] is None: # pos//norm pos//norm pos//norm ...
-							raw_faces.append((fields[0]-1, None, fields[2]-1))
+							pos_id = fields[0]-1
+							norm_id = fields[2]-1
+							
+							raw_faces[current_mesh].append((pos_id-last_position_id, None, norm_id-last_normal_id))
+
+							tmp_last_position_id = max(tmp_last_position_id, pos_id)
+							tmp_last_normal_id = max(tmp_last_normal_id, norm_id)
 						else: # pos/tex/norm pos/tex/norm pos/tex/norm ...
-							raw_faces.append((fields[0]-1, fields[1]-1, fields[2]-1))
+							pos_id = fields[0]-1
+							tex_id = fields[1]-1
+							norm_id = fields[2]-1
+
+							raw_faces[current_mesh].append((
+								pos_id-last_position_id,
+								tex_id-last_tex_coord_id,
+								norm_id-last_normal_id
+							))
+
+							tmp_last_position_id = max(tmp_last_position_id, pos_id)
+							tmp_last_tex_coord_id = max(tmp_last_tex_coord_id, tex_id)
+							tmp_last_normal_id = max(tmp_last_normal_id, norm_id)
+
+			elif tok[0] == 'o':
+				current_mesh = tok[1].strip()
+				raw_meshes.append(current_mesh)
+				last_position_id = tmp_last_position_id+1
+				last_tex_coord_id = tmp_last_tex_coord_id+1
+				last_normal_id = tmp_last_normal_id+1
 			else:
 				continue
 
-		vertices = []
-		indices = []
+		def convert_mesh(raw_positions: list, raw_normals: list, raw_tex_coords: list, raw_faces: list):
+			vertices = []
+			indices = []
 
-		i = 0
-		for v, vt, vn in raw_faces:
-			vertices.extend(list(raw_positions[v]))
+			i = 0
+			for v, vt, vn in raw_faces:
+				vertices.extend(list(raw_positions[v]))
 
-			if vn:
-				vertices.extend(list(raw_normals[vn]))
-			else:
-				vertices.extend([0.0, 0.0, 0.0])
-			
-			if vt:
-				vertices.extend(list(raw_tex_coords[vt]))
-			else:
-				vertices.extend([0.0, 0.0])
+				if vn:
+					vertices.extend(list(raw_normals[vn]))
+				else:
+					vertices.extend([0.0, 0.0, 0.0])
+				
+				if vt:
+					vertices.extend(list(raw_tex_coords[vt]))
+				else:
+					vertices.extend([0.0, 0.0])
 
-			indices.append(i)
-			i += 1
+				indices.append(i)
+				i += 1
 
-		mesh = Mesh(fmt)
-		mesh.update(np.array(vertices, dtype=np.float32), np.array(indices, dtype=np.uint32))
+			mesh = Mesh(fmt)
+			mesh.update(np.array(vertices, dtype=np.float32), np.array(indices, dtype=np.uint32))
 
-		return mesh
+			return mesh
+
+		meshes: Dict[str, Mesh] = {}
+		for mesh in raw_meshes:
+			meshes[mesh] = convert_mesh(
+				raw_positions=raw_positions[mesh],
+				raw_normals=raw_normals[mesh] if mesh in raw_normals else [],
+				raw_tex_coords=raw_tex_coords[mesh] if mesh in raw_tex_coords else [],
+				raw_faces=raw_faces[mesh]
+			)
+
+		return meshes
