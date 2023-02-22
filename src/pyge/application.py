@@ -12,8 +12,24 @@ class Application:
 	def setup(self, title: str='Application', size: Tuple[int, int]=(640, 480), opengl: bool=False):
 		pygame.init()
 
+		if opengl:
+			pygame.display.gl_set_attribute(pygame.GL_RED_SIZE, 8)
+			pygame.display.gl_set_attribute(pygame.GL_GREEN_SIZE, 8)
+			pygame.display.gl_set_attribute(pygame.GL_BLUE_SIZE, 8)
+			pygame.display.gl_set_attribute(pygame.GL_ALPHA_SIZE, 8)
+			pygame.display.gl_set_attribute(pygame.GL_DEPTH_SIZE, 32)
+			pygame.display.gl_set_attribute(pygame.GL_STENCIL_SIZE, 8)
+			pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK, pygame.GL_CONTEXT_PROFILE_CORE)
+			pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 4)
+			pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 6)
+
 		flags = (pygame.OPENGL | pygame.DOUBLEBUF) if opengl else 0
 		self.display: Surface = pygame.display.set_mode(size=size, flags=flags)
+
+		if opengl:
+			glEnable(GL_DEPTH_TEST)
+			glEnable(GL_CULL_FACE)
+			glEnable(GL_BLEND)
 
 		pygame.display.flip()
 		pygame.display.set_caption(title)

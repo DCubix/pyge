@@ -35,8 +35,6 @@ class Texture:
         glCreateTextures(target, 1, id_arr)
         self.id = id_arr
 
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
-
         self.size = [0] * dimensions
     
     def bind(self, unit: int):
