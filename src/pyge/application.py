@@ -17,7 +17,7 @@ class Application:
 			pygame.display.gl_set_attribute(pygame.GL_GREEN_SIZE, 8)
 			pygame.display.gl_set_attribute(pygame.GL_BLUE_SIZE, 8)
 			pygame.display.gl_set_attribute(pygame.GL_ALPHA_SIZE, 8)
-			pygame.display.gl_set_attribute(pygame.GL_DEPTH_SIZE, 32)
+			pygame.display.gl_set_attribute(pygame.GL_DEPTH_SIZE, 24)
 			pygame.display.gl_set_attribute(pygame.GL_STENCIL_SIZE, 8)
 			pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK, pygame.GL_CONTEXT_PROFILE_CORE)
 			pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 4)

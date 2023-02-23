@@ -5,6 +5,8 @@ __all__ = [
     'Vector2', 'Vector4', 'Ray',
 ]
 
+def scalar_lerp(a, b, t):
+    return (1 - t) * a + b * t
 
 class Vector3(object):
     __slots__ = ('x', 'y', 'z')
@@ -45,6 +47,13 @@ class Vector3(object):
         v = self.copy()
         v.normalize_self()
         return v
+
+    def lerp(self, other, factor):
+        return Vector3(
+            scalar_lerp(self.x, other.x, factor),
+            scalar_lerp(self.y, other.y, factor),
+            scalar_lerp(self.z, other.z, factor)
+        )
 
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y and self.z == other.z
@@ -88,6 +97,10 @@ class Vector3(object):
 
     def __repr__(self):
         return 'Vector3({:0.4f}, {:0.4f}, {:0.4f})'.format(self.x, self.y, self.z)
+
+    @property
+    def raw(self):
+        return [self.x, self.y, self.z]
 
 
 class Matrix4(object):
@@ -656,6 +669,19 @@ class Quaternion(object):
         axis_x = up.cross(axis_z).normalize()
         axis_y = axis_z.cross(axis_x)
         return Quaternion.from_matrix3((axis_x, axis_y, axis_z))
+
+    @staticmethod
+    def from_look_at(source: Vector3, dest: Vector3):
+        fwd = (dest - source)
+        fwd.normalize_self()
+
+        right = Vector3(0, -1, 0).cross(fwd)
+        right.normalize_self()
+
+        up = right.cross(fwd)
+        up.normalize_self()
+
+        return Quaternion.from_look_rotation(fwd, up)
 
     def __mul__(self, other):
         res = self.copy()

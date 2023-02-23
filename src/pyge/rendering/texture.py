@@ -4,7 +4,6 @@ from OpenGL.GL import *
 import numpy as np
 import numpy.typing as npt
 
-import PIL, ctypes
 from PIL import Image
 
 class Sampler:

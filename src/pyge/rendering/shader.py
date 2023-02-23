@@ -26,14 +26,16 @@ class Shader:
 		if loc != -1:
 			self._uniforms[name] = loc
 		else:
-			raise f'Uniform is not used or not found: "{name}".'
+			return None
 		return self._uniforms[name]
 
 	def set_uniform(self, name: str, *value):
-		if len(value) == 0: raise f'Invalid value.'
+		if len(value) == 0: raise Exception(f'Invalid value.')
 		if not isinstance(value[0], float) and not isinstance(value[0], int): raise Exception(f'Invalid value type: "{type(value[0])}"')
 
 		loc = self.get_uniform_location(name)
+		if loc is None: return
+		
 		tp = 'f'
 		if isinstance(value[0], int):
 			tp = 'i'
