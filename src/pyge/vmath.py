@@ -932,19 +932,6 @@ class Ray:
 _py_vmath_types = {typename: globals()[typename] for typename in __all__}
 
 
-_have_ext = False
-try:
-    from _vmath import *
-    _have_ext = True
-    _c_vmath_types = {typename: globals()[typename] for typename in __all__}
-except ImportError:
-    pass
-
-
-def have_ext():
-    return _have_ext
-
-
 def _use_types(types):
     global Vector3, Matrix4, Transform, Quaternion, Vector2, Vector4, Ray
     d = globals()

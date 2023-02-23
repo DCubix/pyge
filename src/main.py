@@ -107,6 +107,8 @@ void main() {
     float rim = 1.0 - clamp(dot(vNorm, V), 0.0, 1.0);
     rim = smoothstep(0.5, 1.0, rim);
 
+    vec3 ambientColor = vec3(0.30, 0.24, 0.2);
+
     float spec = max(dot(R, -V), 0.0);
     float specTerm = pow(spec, 8.0);
 
@@ -114,10 +116,12 @@ void main() {
 
     float shadow = ShadowCalculation(vLightPosi, nl);
 
-    vec3 ambient = nl * (1.0 - shadow) + vec3(0.2);
+    float occlusion = nl * (1.0 - shadow);
+
+    vec3 ambient = occlusion + ambientColor;
     vec3 diffuse = ambient * (tcol.rgb + tcol.rgb * rim + vec3(tcol.r * specTerm * 0.6));
 
-    if (tcol.a <= 0.5) discard;
+    if (tcol.a <= 0.3) discard;
 
     fragColor = vec4(diffuse, 1.0);
 }
@@ -190,6 +194,10 @@ class App(Application):
         self.sample.filter()
         self.sample.wrap(GL_REPEAT, GL_REPEAT)
 
+        self.ramp_sample = Sampler()
+        self.ramp_sample.filter()
+        self.ramp_sample.wrap(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER)
+
         self.shadow_sample = Sampler()
         self.shadow_sample.wrap(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER)
 
@@ -212,9 +220,8 @@ class App(Application):
 
         self.create_snake()
 
-        self.spawn_apple()
-        self.spawn_apple()
-        self.spawn_apple()
+        for i in range(20):
+            self.spawn_apple()
 
     def create_snake(self, size: int = 1):
         for _ in range(size+1): # + tail
@@ -222,8 +229,8 @@ class App(Application):
             self.snake_body.append(xform)
 
     def spawn_apple(self):
-        rx = random.uniform(-10, 10)
-        ry = random.uniform(-10, 10)
+        rx = random.uniform(-18, 18)
+        ry = random.uniform(-18, 18)
         self.apples.append(
             Transform(
                 translation=Vector3(rx, 0, ry),
@@ -263,10 +270,18 @@ class App(Application):
         for xform in self.apples:
             xform.rotation *= Quaternion.from_angle_axis(3.0 * dt, Vector3(0, 1, 0))
 
+        # small detail: move apples away from the body
+        for apple in self.apples:
+            for body in self.snake_body:
+                vec = (apple.translation - body.translation)
+                dist = vec.length()
+                if dist <= 1.25:
+                    apple.translation += vec * dt * 5.0
+
         # check for snake head collision with apples
         for apple in self.apples:
             dist = (apple.translation - self.snake_head.translation).length()
-            if dist <= 0.6:
+            if dist <= 0.7:
                 self.apples.remove(apple)
                 # grow snake
                 self.snake_body.append(self.snake_body[-1].copy())

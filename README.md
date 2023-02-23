@@ -48,11 +48,24 @@
 
 PyGE is a simple Python game engine built around pygame and PyOpenGL. It provides a simple Application adapter that you can use to build pygame and OpenGL applications.
 
-<img
-  src="./.github/demo.gif"
-  alt="PyGE 3D model and textures demo"
-  title="PyGE 3D model and textures demo"
-  width="300" />
+<table>
+  <tr>
+    <td>
+      <img
+        src="./.github/demo.gif"
+        alt="PyGE 3D model and textures demo"
+        title="PyGE 3D model and textures demo"
+        width="300" />
+    </td>
+    <td>
+      <img
+        src="./.github/demo2.gif"
+        alt="Snake game demo"
+        title="Snake game demo showcasing shadows"
+        width="300" />
+    </td>
+  </tr>
+</table>
 
 <!-- ## :sparkles: Features ##
 
