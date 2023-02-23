@@ -715,9 +715,9 @@ class Quaternion(object):
 class Transform(object):
     __slots__ = ('translation', 'rotation', 'scale')
     def __init__(self, translation=Vector3(0.0, 0.0, 0.0), rotation=Quaternion(), scale=Vector3(1.0, 1.0, 1.0)):
-        self.translation = translation.copy()
-        self.rotation = rotation.copy()
-        self.scale = scale.copy()
+        self.translation: Vector3 = translation.copy()
+        self.rotation: Quaternion = rotation.copy()
+        self.scale: Vector3 = scale.copy()
 
     def transform_point(self, p):
         return self.to_matrix4().transform_point(p)

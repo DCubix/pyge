@@ -1,14 +1,14 @@
 from typing import List
 from pyge.application import Application
 from pyge.rendering import Mesh, Shader, Texture2D, Sampler, RenderTarget, Utils
+from pyge.vmath import Matrix4, Vector3, Transform, Quaternion
+from pyge.animation import TargetAnimator, FloatInterpolator, Vector3Interpolator, ease_out_elastic, ease_in_out_cubic
 
 import math, pygame, random
 import numpy as np
 from OpenGL.GL import *
 
 from pygame.event import Event
-
-from pyge.vmath import Matrix4, Vector3, Transform, Quaternion
 
 vshader = """
 #version 330 core
@@ -160,6 +160,61 @@ void main() {
 
 lightProj = Matrix4.from_orthographic(-30, 30, -30, 30, 0.001, 600.0)
 
+class Apple:
+    apple_mesh: Mesh = None
+    apple_tex: Texture2D = None
+
+    IDLING = 0
+    SPAWNING = 1
+    SPAWNING_LOOP = 2
+    EATEN = 3
+    EATEN_LOOP = 4
+    DEAD = 5
+
+    def __init__(self):
+        if not Apple.apple_mesh:
+            Apple.apple_mesh = Mesh.from_wavefront('assets/apple.obj')['mesh']
+            Apple.apple_tex = Texture2D.from_image_file('assets/apple.png')
+
+        self.transform = Transform()
+        self.state = Apple.SPAWNING
+
+        self.scale_anim = TargetAnimator(FloatInterpolator(0.0, 1.0))
+    
+    def set_eaten(self):
+        self.state = Apple.EATEN
+
+    def draw(self, shader: Shader):
+        Apple.apple_tex.bind(0)
+        model = self.transform.to_matrix4()
+        shader.set_uniform('uModel', *model.raw)
+        Apple.apple_mesh.draw()
+
+    def update(self, dt: float):
+        self.transform.rotation *= Quaternion.from_angle_axis(3.0 * dt, Vector3(0, 1, 0))
+
+        match self.state:
+            case Apple.SPAWNING:
+                self.scale_anim.interpolator.begin = 0.0
+                self.scale_anim.set_target(1.0, 1.5)
+                self.transform.scale = Vector3(0.0)
+                self.state = Apple.SPAWNING_LOOP
+            case Apple.SPAWNING_LOOP:
+                v = self.scale_anim.get_value(dt, ease_out_elastic)
+                self.transform.scale = Vector3(v, v, v)
+                if self.scale_anim.state == TargetAnimator.FINISHED:
+                    self.state = Apple.IDLING
+            case Apple.EATEN:
+                self.scale_anim.interpolator.begin = 1.0
+                self.scale_anim.set_target(0.0, 0.3)
+                self.state = Apple.EATEN_LOOP
+            case Apple.EATEN_LOOP:
+                v = self.scale_anim.get_value(dt, ease_in_out_cubic)
+                self.transform.scale = Vector3(v, v, v)
+                if self.scale_anim.state == TargetAnimator.FINISHED:
+                    self.state = Apple.DEAD
+            case _: pass
+
 class App(Application):
     def __init__(self):
         self.setup(opengl=True, size=(1280, 720))
@@ -216,11 +271,11 @@ class App(Application):
         self.snake_speed = 3.0
         self.position_history = []
 
-        self.apples: List[Transform] = []
+        self.apples: List[Apple] = []
 
         self.create_snake()
 
-        for i in range(20):
+        for i in range(10):
             self.spawn_apple()
 
     def create_snake(self, size: int = 1):
@@ -231,12 +286,13 @@ class App(Application):
     def spawn_apple(self):
         rx = random.uniform(-18, 18)
         ry = random.uniform(-18, 18)
-        self.apples.append(
-            Transform(
-                translation=Vector3(rx, 0, ry),
-                rotation=Quaternion.from_angle_axis(random.uniform(-math.pi, math.pi), Vector3(0, 1, 0))
-            )
+        apple = Apple()
+        apple.transform = Transform(
+            translation=Vector3(rx, 0, ry),
+            rotation=Quaternion.from_angle_axis(random.uniform(-math.pi, math.pi), Vector3(0, 1, 0)),
+            scale=Vector3()
         )
+        self.apples.append(apple)
 
     def on_event(self, event: Event):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
@@ -267,26 +323,33 @@ class App(Application):
             i += 1
 
         # rotate apples
-        for xform in self.apples:
-            xform.rotation *= Quaternion.from_angle_axis(3.0 * dt, Vector3(0, 1, 0))
+        for apple in self.apples:
+            apple.update(dt)
 
         # small detail: move apples away from the body
         for apple in self.apples:
             for body in self.snake_body:
-                vec = (apple.translation - body.translation)
+                vec = (apple.transform.translation - body.translation)
                 dist = vec.length()
                 if dist <= 1.25:
-                    apple.translation += vec * dt * 5.0
+                    apple.transform.translation += vec * dt * 5.0
 
         # check for snake head collision with apples
         for apple in self.apples:
-            dist = (apple.translation - self.snake_head.translation).length()
-            if dist <= 0.7:
+            if apple.state != Apple.IDLING: continue
+
+            vec: Vector3 = (apple.transform.translation - self.snake_head.translation)
+            dist = vec.length()
+
+            if dist <= 0.6:
+                apple.set_eaten()
+                break
+
+        for apple in self.apples:
+            if apple.state == Apple.DEAD:
                 self.apples.remove(apple)
-                # grow snake
                 self.snake_body.append(self.snake_body[-1].copy())
                 self.spawn_apple()
-                break
 
 
     def on_draw(self):
@@ -352,10 +415,8 @@ class App(Application):
         self.apple_tex.bind(0)
         self.sample.bind(0)
 
-        for xform in self.apples:
-            model = xform.to_matrix4()
-            shader.set_uniform('uModel', *model.raw)
-            self.apple_mesh.draw()
+        for apple in self.apples:
+            apple.draw(shader)
 
     def draw_snake(self, shader: Shader, view: Matrix4, proj: Matrix4):
         shader.use()
