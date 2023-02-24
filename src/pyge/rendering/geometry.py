@@ -46,20 +46,13 @@ class VertexFormat:
 	def add_field(self, size: int, normalized: bool=False, type: GLenum=GL_FLOAT):
 		self.fields.append((size, normalized, type))
 
-	def apply(self):
-		stride = self.stride
+	def enable(self, vao: GLuint):
 		offset = 0
 		index = 0
 		for size, normalized, type in self.fields:
-			glEnableVertexAttribArray(index)
-			glVertexAttribPointer(
-				index,
-				size,
-				type,
-				GL_TRUE if normalized else GL_FALSE,
-				stride,
-				ctypes.c_void_p(offset)
-			)
+			glEnableVertexArrayAttrib(vao, index)
+			glVertexArrayAttribBinding(vao, index, 0)
+			glVertexArrayAttribFormat(vao, index, size, type, GL_TRUE if normalized else GL_FALSE, offset)
 			offset += size * self._sizeofGLtype(type)
 			index += 1
 	
@@ -75,16 +68,18 @@ class Buffer:
 	def __init__(self, target: GLenum, usage: GLenum):
 		self.target = target
 		self.usage = usage
-		self.id = glGenBuffers(1)
+
+		self.id = GLuint()
+		glCreateBuffers(1, self.id)
+
 		self.data_length = 0
 
 	def update(self, data: npt.NDArray, offset: int=0):
-		self.bind()
 		if self.data_length < data.size:
-			glBufferData(self.target, data.size * data.itemsize, data, self.usage)
+			glNamedBufferData(self.id, data.size * data.itemsize, data, self.usage)
 			self.data_length = data.size
 		else:
-			glBufferSubData(self.target, offset, data.size * data.itemsize, data)
+			glNamedBufferSubData(self.id, offset, data.size * data.itemsize, data)
 
 	def bind(self):
 		glBindBuffer(self.target, self.id)
@@ -95,24 +90,20 @@ class Mesh:
 		self.format = format
 
 		self.vbo = Buffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW)
-		self.ibo = Buffer(GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW)
-		self.vao = glGenVertexArrays(1)
+		self.ebo = Buffer(GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW)
+		self.vao = GLuint()
+		glCreateVertexArrays(1, self.vao)
 
-		glBindVertexArray(self.vao)
-		self.vbo.bind()
-
-		self.format.apply()
-
-		self.ibo.bind()
-
-		glBindVertexArray(0)
+		self.format.enable(self.vao)
+		glVertexArrayVertexBuffer(self.vao, 0, self.vbo.id, 0, self.format.stride)
+		glVertexArrayElementBuffer(self.vao, self.ebo.id)
 	
 	def update(self, vertices: npt.NDArray[np.float32], indices: npt.NDArray[np.uint32]):
 		self.vbo.update(vertices)
-		self.ibo.update(indices)
+		self.ebo.update(indices)
 
 	def draw(self, primitive: GLenum=GL_TRIANGLES, count: int=-1, offset: int=0):
-		count = self.ibo.data_length if count <= 0 else count
+		count = self.ebo.data_length if count <= 0 else count
 		glBindVertexArray(self.vao)
 		glDrawElements(primitive, count, GL_UNSIGNED_INT, ctypes.c_void_p(offset * ctypes.sizeof(ctypes.c_uint)))
 
