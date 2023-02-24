@@ -1,4 +1,5 @@
 from typing import List
+from apple import Apple
 from pyge.application import Application
 from pyge.rendering import Mesh, Shader, Texture2D, Sampler, RenderTarget, Utils
 from pyge.vmath import Matrix4, Vector3, Transform, Quaternion
@@ -10,210 +11,7 @@ from OpenGL.GL import *
 
 from pygame.event import Event
 
-vshader = """
-#version 330 core
-layout (location=0) in vec3 vPos;
-layout (location=1) in vec3 vNrm;
-layout (location=2) in vec2 vTex;
-
-uniform mat4 uProj;
-uniform mat4 uView;
-uniform mat4 uModel;
-
-uniform mat4 uLightMatrix;
-
-out vec2 vUV;
-out vec3 vNorm;
-out vec3 vPosi;
-out vec4 vLightPosi;
-
-void main() {
-    mat4 vm = uView * uModel;
-    vec4 pos = vm * vec4(vPos, 1.0);
-    gl_Position = uProj * pos;
-    vUV = vTex;
-    vPosi = pos.xyz;
-    vLightPosi = uLightMatrix * uModel * vec4(vPos, 1.0);
-    vNorm = normalize(vm * vec4(vNrm, 0.0)).xyz;
-}
-"""
-
-fshader = """
-#version 330 core
-out vec4 fragColor;
-
-uniform sampler2D tex;
-uniform sampler2D shadowMap;
-
-in vec2 vUV;
-in vec3 vNorm;
-in vec3 vPosi;
-in vec4 vLightPosi;
-
-uniform vec3 lightDir;
-
-vec2 poissonDisk[24] = vec2[](
-  vec2(0.01020043f, 0.3103616f),
-  vec2(-0.4121873f, -0.1701329f),
-  vec2(0.4333374f, 0.6148015f),
-  vec2(0.1092096f, -0.2437763f),
-  vec2(0.6641068f, -0.1210794f),
-  vec2(-0.1726627f, 0.8724736f),
-  vec2(-0.8549297f, 0.2836411f),
-  vec2(0.5146544f, -0.6802685f),
-  vec2(0.04769185f, -0.879628f),
-  vec2(-0.9373617f, -0.2187589f),
-  vec2(-0.69226f, -0.6652822f),
-  vec2(0.9230682f, 0.3181772f),
-  // these points might be bad:
-  vec2(-0.1565961f, 0.8773971f),
-  vec2(-0.5258075f, 0.3916658f),
-  vec2(0.515902f, 0.3077986f),
-  vec2(-0.006838934f, 0.2577735f),
-  vec2(-0.9315282f, -0.04518054f),
-  vec2(-0.3417063f, -0.1195169f),
-  vec2(-0.3221133f, -0.8118886f),
-  vec2(0.425082f, -0.3786222f),
-  vec2(0.3917231f, 0.9194779f),
-  vec2(0.8819267f, -0.1306234f),
-  vec2(-0.7906089f, -0.5639677f),
-  vec2(0.2073919f, -0.9611396f)
-);
-
-float ShadowCalculation(vec4 fragPosLightSpace, float nl) {
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    projCoords = projCoords * 0.5 + 0.5;
-
-    if (projCoords.z > 1.0) return 0.0;
-
-    float currentDepth = projCoords.z;
-    float bias = max(0.005 * (1.0 - nl), 0.001);
-    float shadow = 0.0;
-
-    for (int i = 0; i < 24; i++) {
-        float pcfDepth = texture(shadowMap, projCoords.xy + poissonDisk[i] * 0.0025).r;
-        shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;
-    }
-    
-    return shadow / 24.0;
-}
-
-void main() {
-    vec3 L = normalize(lightDir);
-    vec3 V = normalize(-vPosi);
-    vec3 R = normalize(reflect(L, vNorm));
-
-    float nl = clamp(dot(vNorm, L), 0.0, 1.0);
-    float rim = 1.0 - clamp(dot(vNorm, V), 0.0, 1.0);
-    rim = smoothstep(0.5, 1.0, rim);
-
-    vec3 ambientColor = vec3(0.30, 0.24, 0.2);
-
-    float spec = max(dot(R, -V), 0.0);
-    float specTerm = pow(spec, 8.0);
-
-    vec4 tcol = texture(tex, vUV);
-
-    float shadow = ShadowCalculation(vLightPosi, nl);
-
-    float occlusion = nl * (1.0 - shadow);
-
-    vec3 ambient = occlusion + ambientColor;
-    vec3 diffuse = ambient * (tcol.rgb + tcol.rgb * rim + vec3(tcol.r * specTerm * 0.6));
-
-    if (tcol.a <= 0.3) discard;
-
-    fragColor = vec4(diffuse, 1.0);
-}
-"""
-
-v_shadow_shader = """
-#version 330 core
-layout (location = 0) in vec3 vPos;
-layout (location=2) in vec2 vTex;
-
-uniform mat4 uProj;
-uniform mat4 uView;
-uniform mat4 uModel;
-
-out vec2 vUV;
-
-void main() {
-    mat4 vm = uView * uModel;
-    vec4 pos = vm * vec4(vPos, 1.0);
-    gl_Position = uProj * pos;
-    vUV = vTex;
-}
-"""
-
-f_shadow_shader = """
-#version 330 core
-
-uniform sampler2D tex;
-
-in vec2 vUV;
-
-void main() {
-    if (texture(tex, vUV).a <= 0.5) discard;
-}  
-"""
-
 lightProj = Matrix4.from_orthographic(-30, 30, -30, 30, 0.001, 600.0)
-
-class Apple:
-    apple_mesh: Mesh = None
-    apple_tex: Texture2D = None
-
-    IDLING = 0
-    SPAWNING = 1
-    SPAWNING_LOOP = 2
-    EATEN = 3
-    EATEN_LOOP = 4
-    DEAD = 5
-
-    def __init__(self):
-        if not Apple.apple_mesh:
-            Apple.apple_mesh = Mesh.from_wavefront('assets/apple.obj')['mesh']
-            Apple.apple_tex = Texture2D.from_image_file('assets/apple.png')
-
-        self.transform = Transform()
-        self.state = Apple.SPAWNING
-
-        self.scale_anim = TargetAnimator(FloatInterpolator(0.0, 1.0))
-    
-    def set_eaten(self):
-        self.state = Apple.EATEN
-
-    def draw(self, shader: Shader):
-        Apple.apple_tex.bind(0)
-        model = self.transform.to_matrix4()
-        shader.set_uniform('uModel', *model.raw)
-        Apple.apple_mesh.draw()
-
-    def update(self, dt: float):
-        self.transform.rotation *= Quaternion.from_angle_axis(3.0 * dt, Vector3(0, 1, 0))
-
-        match self.state:
-            case Apple.SPAWNING:
-                self.scale_anim.interpolator.begin = 0.0
-                self.scale_anim.set_target(1.0, 1.5)
-                self.transform.scale = Vector3(0.0)
-                self.state = Apple.SPAWNING_LOOP
-            case Apple.SPAWNING_LOOP:
-                v = self.scale_anim.get_value(dt, ease_out_elastic)
-                self.transform.scale = Vector3(v, v, v)
-                if self.scale_anim.state == TargetAnimator.FINISHED:
-                    self.state = Apple.IDLING
-            case Apple.EATEN:
-                self.scale_anim.interpolator.begin = 1.0
-                self.scale_anim.set_target(0.0, 0.3)
-                self.state = Apple.EATEN_LOOP
-            case Apple.EATEN_LOOP:
-                v = self.scale_anim.get_value(dt, ease_in_out_cubic)
-                self.transform.scale = Vector3(v, v, v)
-                if self.scale_anim.state == TargetAnimator.FINISHED:
-                    self.state = Apple.DEAD
-            case _: pass
 
 class App(Application):
     def __init__(self):
@@ -233,13 +31,13 @@ class App(Application):
         self.level_tex = Texture2D.from_image_file('assets/grass.png')
 
         self.shader = Shader()
-        self.shader.add_shader(vshader, GL_VERTEX_SHADER)
-        self.shader.add_shader(fshader, GL_FRAGMENT_SHADER)
+        self.shader.add_shader_from_file("shaders/default.vert", GL_VERTEX_SHADER)
+        self.shader.add_shader_from_file("shaders/default.frag", GL_FRAGMENT_SHADER)
         self.shader.link()
 
         self.shadow_shader = Shader()
-        self.shadow_shader.add_shader(v_shadow_shader, GL_VERTEX_SHADER)
-        self.shadow_shader.add_shader(f_shadow_shader, GL_FRAGMENT_SHADER)
+        self.shadow_shader.add_shader_from_file("shaders/shadow.vert", GL_VERTEX_SHADER)
+        self.shadow_shader.add_shader_from_file("shaders/shadow.frag", GL_FRAGMENT_SHADER)
         self.shadow_shader.link()
 
         self.shadow_buffer = RenderTarget(1024, 1024)
@@ -248,10 +46,6 @@ class App(Application):
         self.sample = Sampler()
         self.sample.filter()
         self.sample.wrap(GL_REPEAT, GL_REPEAT)
-
-        self.ramp_sample = Sampler()
-        self.ramp_sample.filter()
-        self.ramp_sample.wrap(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER)
 
         self.shadow_sample = Sampler()
         self.shadow_sample.wrap(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER)

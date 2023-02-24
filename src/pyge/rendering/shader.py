@@ -14,6 +14,12 @@ class Shader:
 	
 	def add_shader(self, source: str, type: GLenum):
 		self._shaders.append(compileShader(source, type))
+
+	def add_shader_from_file(self, file_path: str, type: GLenum):
+		source = ""
+		with open(file_path) as fp:
+			source = fp.read()
+		self.add_shader(source, type)
 	
 	def link(self):
 		self.program = compileProgram(*self._shaders)
