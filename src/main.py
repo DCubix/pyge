@@ -1,9 +1,8 @@
 from typing import List
 from apple import Apple
 from pyge.application import Application
-from pyge.rendering import Mesh, Shader, Texture2D, Sampler, RenderTarget, Utils
+from pyge.rendering import Mesh, Shader, Texture2D, Sampler, RenderTarget, Utils, Font
 from pyge.vmath import Matrix4, Vector3, Transform, Quaternion
-from pyge.animation import TargetAnimator, FloatInterpolator, Vector3Interpolator, ease_out_elastic, ease_in_out_cubic
 
 import math, pygame, random
 import numpy as np
@@ -16,6 +15,8 @@ lightProj = Matrix4.from_orthographic(-30, 30, -30, 30, 0.001, 600.0)
 class App(Application):
     def __init__(self):
         self.setup(opengl=True, size=(1280, 720))
+
+        Font('C:\\Windows\\Fonts\\comic.ttf')
 
         self.snake_body_mesh = Mesh.from_wavefront('assets/snake_body.obj')['mesh']
         self.snake_tail_mesh = Mesh.from_wavefront('assets/snake_tail.obj')['mesh']

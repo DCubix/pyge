@@ -24,6 +24,9 @@ class Shader:
 	def link(self):
 		self.program = compileProgram(*self._shaders)
 	
+	def discard(self):
+		glDeleteProgram(self.program)
+
 	def use(self):
 		glUseProgram(self.program)
 	

@@ -30,11 +30,15 @@ class Texture:
         self.target = target
         self.internalFormat = internalFormat
 
-        id_arr = GLuint()
-        glCreateTextures(target, 1, id_arr)
-        self.id = id_arr
+        self.id = GLuint()
+        glCreateTextures(target, 1, self.id)
+
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
 
         self.size = [0] * dimensions
+
+    def discard(self):
+        glDeleteTextures(1, self.id)
     
     def bind(self, unit: int):
         glBindTextureUnit(unit, self.id)
@@ -74,6 +78,9 @@ class Texture2D(Texture):
 
     def update(self, data: npt.NDArray, format: GLenum, type: GLenum):
         glTextureSubImage2D(self.id, 0, 0, 0, self.size[0], self.size[1], format, type, data)
+
+    def update_subregion(self, data: npt.NDArray, x: int, y: int, width: int, height: int, format: GLenum, type: GLenum):
+        glTextureSubImage2D(self.id, 0, x, y, width, height, format, type, data)
     
     @staticmethod
     def from_image_file(file_path: str):
