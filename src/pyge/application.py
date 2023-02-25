@@ -22,6 +22,8 @@ class Application:
 			pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK, pygame.GL_CONTEXT_PROFILE_CORE)
 			pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 4)
 			pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 6)
+			pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLEBUFFERS, 1)
+			pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLESAMPLES, 8)
 
 		flags = (pygame.OPENGL | pygame.DOUBLEBUF) if opengl else 0
 		self.display: Surface = pygame.display.set_mode(size=size, flags=flags)
@@ -29,6 +31,7 @@ class Application:
 		if opengl:
 			glEnable(GL_DEPTH_TEST)
 			glEnable(GL_CULL_FACE)
+			glEnable(GL_MULTISAMPLE)
 
 		pygame.display.flip()
 		pygame.display.set_caption(title)
