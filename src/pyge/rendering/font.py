@@ -17,7 +17,7 @@ from .geometry import Mesh, VertexFormat
 from .texture import Texture2D, Sampler
 from .shader import Shader, ShaderCache
 
-from PIL import Image, ImageDraw
+# from PIL import Image, ImageDraw
 
 vs = """
 #version 330 core
@@ -94,7 +94,7 @@ class BasicAtlas:
                     self.data[ny, nx] = data[dx, dy]
 
 class Font:
-    def __init__(self, font_file_path: str, sdf_spread: int=12, atlas_size: int=1440):
+    def __init__(self, font_file_path: str, sdf_spread: int=16, atlas_size: int=2048):
         self.face = ft.Face(font_file_path)
         self.face.set_pixel_sizes(0, 80)
         self.characters: Dict[str, Character] = {}
@@ -247,7 +247,7 @@ class Font:
 
         sdf_shader = """
         #version 460
-        layout (local_size_x=2, local_size_y=2) in;
+        layout (local_size_x=4, local_size_y=4) in;
 
         layout (r8, binding=0) uniform image2D uInput;
         layout (r8, binding=1) uniform image2D uOutSDF;
@@ -288,7 +288,7 @@ class Font:
         }
 
         void main() {
-            vec2 sz = vec2(gl_NumWorkGroups.xy * 2);
+            vec2 sz = vec2(gl_NumWorkGroups.xy * 4);
             vec2 pos = vec2(gl_GlobalInvocationID.xy);
             
             float centerX = floor(pos.x + 0.5);
@@ -319,7 +319,7 @@ class Font:
 
         shd.set_uniform('spread', spread)
 
-        glDispatchCompute(sdf_tex.size[0] // 2, sdf_tex.size[1] // 2, 1)
+        glDispatchCompute(sdf_tex.size[0] // 4, sdf_tex.size[1] // 4, 1)
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT)
 
         imageData = images.SetupPixelRead(GL_RED, sdf_tex.size, GL_UNSIGNED_BYTE)
