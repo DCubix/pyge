@@ -177,9 +177,11 @@ class App(Application):
         # Utils.draw_quad(self.shadow_buffer.depth_attachment, 0.01, -0.1, 0.8, 0.8 * aspect)
 
         ortho2d = Matrix4.from_orthographic(0, self.display.get_width(), self.display.get_height(), 0, -1, 1)
-        self.font.draw(ortho2d, f'Score: {self.score:06d}', 20.0, 70.0, scale=0.5)
-
-        self.font.draw(ortho2d, 'Testing Some\nMultiline Text\nThis is just to test multiline\ntext and alignment!', 200.0, 150.0, scale=0.2, align=1, color=(1.0, 0.3, 0.9, 1.0))
+        
+        self.font.begin_drawing()
+        self.font.draw(f'Score: {self.score:06d}', 20.0, 70.0, scale=0.5)
+        self.font.draw('Testing Some\nMultiline Text\nThis is just to test multiline\ntext and alignment!', 200.0, 150.0, scale=0.2, align=1, color=(1.0, 0.3, 0.9, 1.0))
+        self.font.end_drawing(ortho2d)
 
     def draw_scene(self, shader: Shader, view: Matrix4, proj: Matrix4, cull_level: bool=True):
         if cull_level: glDisable(GL_CULL_FACE)

@@ -157,12 +157,18 @@ class Font:
         ]))
         self._previous_text = ''
 
-        #shader
+        # shader
         self._shader = ShaderCache.get('_font_shader')
         if not self._shader.linked:
             self._shader.add_shader(vs, GL_VERTEX_SHADER)
             self._shader.add_shader(fs, GL_FRAGMENT_SHADER)
             self._shader.link()
+
+        # batching
+        self._drawing = False
+        self._vertices = []
+        self._indices = []
+        self._start_index = 0
 
         # show rects [DEBUG]
         # img = Image.fromarray(dat).convert('RGB')
@@ -175,29 +181,18 @@ class Font:
 
         # img.show()
 
-    def draw(self,
-        proj: Matrix4,
-        text: str,
-        x: float, y: float,
-        scale: float=1.0,
-        color: Tuple[float, float, float, float]=(1, 1, 1, 1),
-        align: int=0
-    ):
-        """Draws a 2D text to the screen
+    def begin_drawing(self):
+        if self._drawing: return
+        self._drawing = True
+        self._start_index = 0
 
-        Args:
-            text (str): Text string
-            x (float): X coordinate
-            y (float): Y coordinate
-            scale (float, optional): Text scale. Defaults to 1.0.
-            color (Tuple[float, float, float, float], optional): Text color. Defaults to (1, 1, 1, 1) (WHITE).
-            align (int, optional): Text alignment: 0 = Left, 1 = Center, 2 = Right. Defaults to LEFT(0).
-        """
-        if self._previous_text != text:
-            verts, inds, _ = self._generate_text_mesh(text, x, y, scale, color, align)
-            self._mesh.update(np.array(verts, dtype=np.float32), np.array(inds, dtype=np.uint32))
-            self._previous_text = text
-        
+    def end_drawing(self, proj: Matrix4):
+        if not self._drawing: return
+        self._drawing = False
+        self._mesh.update(np.array(self._vertices, dtype=np.float32), np.array(self._indices, dtype=np.uint32))
+        self._vertices = []
+        self._indices = []
+
         depthEnabled = glIsEnabled(GL_DEPTH_TEST)
         blendEnabled = glIsEnabled(GL_BLEND)
         cullfaceEnabled = glIsEnabled(GL_CULL_FACE)
@@ -221,6 +216,27 @@ class Font:
         if cullfaceEnabled: glEnable(GL_CULL_FACE)
         if not blendEnabled: glDisable(GL_BLEND)
 
+    def draw(self,
+        text: str,
+        x: float, y: float,
+        scale: float=1.0,
+        color: Tuple[float, float, float, float]=(1, 1, 1, 1),
+        align: int=0
+    ):
+        """Draws a 2D text to the screen
+
+        Args:
+            text (str): Text string
+            x (float): X coordinate
+            y (float): Y coordinate
+            scale (float, optional): Text scale. Defaults to 1.0.
+            color (Tuple[float, float, float, float], optional): Text color. Defaults to (1, 1, 1, 1) (WHITE).
+            align (int, optional): Text alignment: 0 = Left, 1 = Center, 2 = Right. Defaults to LEFT(0).
+        """
+        verts, inds, _ = self._generate_text_mesh(text, x, y, scale, color, align)
+        self._vertices.extend(verts)
+        self._indices.extend([ i + self._start_index for i in inds ])
+        self._start_index += len(verts) // self._mesh.format.size
 
     def _generate_single_char(self, char: str):
         self.face.load_char(char)
