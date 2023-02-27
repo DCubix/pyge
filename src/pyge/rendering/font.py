@@ -107,11 +107,14 @@ class Font:
         chars = get_all_chars('cp1252')
         print(f'Processing {len(chars)} chars.')
 
+        self.line_height = 0
         for char in chars:
             char_obj = self._generate_single_char(char)
             if not char_obj: continue
             
+            self.line_height = max(self.line_height, char_obj.size[1])
             self.characters[char_obj.char] = char_obj
+        self.line_height += 5
 
         self._pack(atlas_size, atlas_size)
 
@@ -463,9 +466,9 @@ class Font:
         indices = []
         start_offset = 0
 
-        line_height = self.characters['|'].size[1] * scale
+        line_height = self.line_height * scale
 
-        lines = text.split('\r\n')
+        lines = text.split('\n')
         for line in lines:
             ox = 0
             match align:

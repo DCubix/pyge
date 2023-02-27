@@ -179,6 +179,8 @@ class App(Application):
         ortho2d = Matrix4.from_orthographic(0, self.display.get_width(), self.display.get_height(), 0, -1, 1)
         self.font.draw(ortho2d, f'Score: {self.score:06d}', 20.0, 70.0, scale=0.5)
 
+        self.font.draw(ortho2d, 'Testing Some\nMultiline Text\nThis is just to test multiline\ntext and alignment!', 200.0, 150.0, scale=0.2, align=1, color=(1.0, 0.3, 0.9, 1.0))
+
     def draw_scene(self, shader: Shader, view: Matrix4, proj: Matrix4, cull_level: bool=True):
         if cull_level: glDisable(GL_CULL_FACE)
         self.draw_level(shader, view, proj)
