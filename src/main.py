@@ -16,7 +16,7 @@ class App(Application):
     def __init__(self):
         self.setup(opengl=True, size=(1280, 720))
 
-        Font('C:\\Windows\\Fonts\\comic.ttf')
+        self.font = Font('assets/allegro.ttf')
 
         self.snake_body_mesh = Mesh.from_wavefront('assets/snake_body.obj')['mesh']
         self.snake_tail_mesh = Mesh.from_wavefront('assets/snake_tail.obj')['mesh']
@@ -65,6 +65,8 @@ class App(Application):
         self.snake_gap = 14
         self.snake_speed = 3.0
         self.position_history = []
+
+        self.score = 0
 
         self.apples: List[Apple] = []
 
@@ -144,6 +146,7 @@ class App(Application):
             if apple.state == Apple.DEAD:
                 self.apples.remove(apple)
                 self.snake_body.append(self.snake_body[-1].copy())
+                self.score += 1
                 self.spawn_apple()
 
 
@@ -172,6 +175,9 @@ class App(Application):
 
         # aspect = self.display.get_width() / self.display.get_height()
         # Utils.draw_quad(self.shadow_buffer.depth_attachment, 0.01, -0.1, 0.8, 0.8 * aspect)
+
+        ortho2d = Matrix4.from_orthographic(0, self.display.get_width(), self.display.get_height(), 0, -1, 1)
+        self.font.draw(ortho2d, f'Score: {self.score:06d}', 20.0, 70.0, scale=0.5)
 
     def draw_scene(self, shader: Shader, view: Matrix4, proj: Matrix4, cull_level: bool=True):
         if cull_level: glDisable(GL_CULL_FACE)

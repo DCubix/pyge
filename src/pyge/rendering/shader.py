@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Dict
 
 import OpenGL.GL
 from OpenGL.GL import *
@@ -11,7 +11,12 @@ class Shader:
 		self._shaders = []
 		self._uniforms = {}
 		self._attributes = {}
+		self._linked = False
 	
+	@property
+	def linked(self):
+		return self._linked
+
 	def add_shader(self, source: str, type: GLenum):
 		self._shaders.append(compileShader(source, type))
 
@@ -23,6 +28,7 @@ class Shader:
 	
 	def link(self):
 		self.program = compileProgram(*self._shaders)
+		self._linked = True
 	
 	def discard(self):
 		glDeleteProgram(self.program)
@@ -54,3 +60,12 @@ class Shader:
 			case 9: glUniformMatrix3fv(loc, 1, False, list(value))
 			case 16: glUniformMatrix4fv(loc, 1, False, list(value))
 			case _: raise f'Invalid value.'
+
+class ShaderCache:
+	cache: Dict[str, Shader] = {}
+
+	@staticmethod
+	def get(name: str) -> Shader:
+		if name not in ShaderCache.cache:
+			ShaderCache.cache[name] = Shader()
+		return ShaderCache.cache[name]
