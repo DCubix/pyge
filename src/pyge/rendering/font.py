@@ -233,6 +233,9 @@ class Font:
             color (Tuple[float, float, float, float], optional): Text color. Defaults to (1, 1, 1, 1) (WHITE).
             align (int, optional): Text alignment: 0 = Left, 1 = Center, 2 = Right. Defaults to LEFT(0).
         """
+        if not self._drawing:
+            raise Exception('Please call begin_drawing first. Then end_drawing to complete the rendering.')
+
         verts, inds, _ = self._generate_text_mesh(text, x, y, scale, color, align)
         self._vertices.extend(verts)
         self._indices.extend([ i + self._start_index for i in inds ])
