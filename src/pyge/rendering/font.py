@@ -21,17 +21,18 @@ from .shader import Shader, ShaderCache
 
 vs = """
 #version 330 core
-layout (location=0) in vec2 vPos;
+layout (location=0) in vec3 vPos;
 layout (location=1) in vec2 vTex;
 layout (location=2) in vec4 vCol;
 
 uniform mat4 uProj;
+uniform mat4 uModel;
 
 out vec2 oTex;
 out vec4 oCol;
 
 void main() {
-    gl_Position = uProj * vec4(vPos, 0.0, 1.0);
+    gl_Position = uProj * uModel * vec4(vPos, 1.0);
     oTex = vTex;
     oCol = vCol;
 }
@@ -51,6 +52,7 @@ const float smoothing = 1.0/16.0;
 void main() {
     float distance = texture(uFont, oTex).r;
     float alpha = smoothstep(0.5 - smoothing, 0.5 + smoothing, distance);
+    if (alpha <= 0.001) discard;
     fragColor = vec4(alpha) * oCol;
 }
 """
@@ -95,8 +97,9 @@ class BasicAtlas:
 
 class Font:
     def __init__(self, font_file_path: str, sdf_spread: int=16, atlas_size: int=2048):
+        self.default_height = 80
         self.face = ft.Face(font_file_path)
-        self.face.set_pixel_sizes(0, 80)
+        self.face.set_pixel_sizes(0, self.default_height)
         self.characters: Dict[str, Character] = {}
         self.character_uvs: Dict[str, Tuple[float, float, float, float]] = {}
         self.spread = int(sdf_spread)
@@ -151,7 +154,7 @@ class Font:
 
         # mesh!
         self._mesh = Mesh(VertexFormat.from_list([
-            (2, False, GL_FLOAT), # POSITION
+            (3, False, GL_FLOAT), # POSITION
             (2, False, GL_FLOAT), # UV
             (4, True, GL_FLOAT)   # COLOR
         ]))
@@ -169,6 +172,7 @@ class Font:
         self._vertices = []
         self._indices = []
         self._start_index = 0
+        self._draw_calls = []
 
         # show rects [DEBUG]
         # img = Image.fromarray(dat).convert('RGB')
@@ -186,7 +190,7 @@ class Font:
         self._drawing = True
         self._start_index = 0
 
-    def end_drawing(self, proj: Matrix4):
+    def end_drawing(self, proj_view: Matrix4):
         if not self._drawing: return
         self._drawing = False
         self._mesh.update(np.array(self._vertices, dtype=np.float32), np.array(self._indices, dtype=np.uint32))
@@ -197,7 +201,6 @@ class Font:
         blendEnabled = glIsEnabled(GL_BLEND)
         cullfaceEnabled = glIsEnabled(GL_CULL_FACE)
 
-        if depthEnabled: glDisable(GL_DEPTH_TEST)
         if cullfaceEnabled: glDisable(GL_CULL_FACE)
         if not blendEnabled: glEnable(GL_BLEND)
 
@@ -208,13 +211,49 @@ class Font:
         self.sample.bind(0)
         self.atlas.bind(0)
         self._shader.set_uniform('uFont', 0)
-        self._shader.set_uniform('uProj', *proj.raw)
+        self._shader.set_uniform('uProj', *proj_view.raw)
 
-        self._mesh.draw()
+        for offset, count, xform, depthTest in self._draw_calls:
+            if depthEnabled and not depthTest: glDisable(GL_DEPTH_TEST)
 
-        if depthEnabled: glEnable(GL_DEPTH_TEST)
+            self._shader.set_uniform('uModel', *xform.raw)
+            self._mesh.draw(count=count, offset=offset)
+
+            if depthEnabled and not depthTest: glEnable(GL_DEPTH_TEST)
+
         if cullfaceEnabled: glEnable(GL_CULL_FACE)
         if not blendEnabled: glDisable(GL_BLEND)
+
+        self._draw_calls = []
+
+    def draw_3d(
+        self,
+        text: str,
+        transform: Matrix4=Matrix4(), 
+        scale: float=1.0,
+        color: Tuple[float, float, float, float]=(1, 1, 1, 1),
+        align: int=0
+    ):
+        scl = scale * (1.0 / self.default_height)
+        """Draws a 3D text to the screen
+
+        Args:
+            text (str): Text string
+            transform (Matrix4): Transformation/Model matrix
+            scale (float, optional): Text scale. Defaults to 1.0.
+            color (Tuple[float, float, float, float], optional): Text color. Defaults to (1, 1, 1, 1) (WHITE).
+            align (int, optional): Text alignment: 0 = Left, 1 = Center, 2 = Right. Defaults to LEFT(0).
+        """
+        if not self._drawing:
+            raise Exception('Please call begin_drawing first. Then end_drawing to complete the rendering.')
+
+        verts, inds, _ = self._generate_text_mesh(text, 0.0, 0.0, scl, color, align, True)
+        self._vertices.extend(verts)
+        self._indices.extend([ i + self._start_index for i in inds ])
+
+        self._draw_calls.append((self._start_index, len(inds), transform, True))
+
+        self._start_index += len(verts) // self._mesh.format.size
 
     def draw(self,
         text: str,
@@ -236,9 +275,12 @@ class Font:
         if not self._drawing:
             raise Exception('Please call begin_drawing first. Then end_drawing to complete the rendering.')
 
-        verts, inds, _ = self._generate_text_mesh(text, x, y, scale, color, align)
+        verts, inds, _ = self._generate_text_mesh(text, x, y, scale, color, align, False)
         self._vertices.extend(verts)
         self._indices.extend([ i + self._start_index for i in inds ])
+
+        self._draw_calls.append((self._start_index, len(inds), Matrix4(), False))
+
         self._start_index += len(verts) // self._mesh.format.size
 
     def _generate_single_char(self, char: str):
@@ -424,9 +466,11 @@ class Font:
     def _generate_char_vertices(
         self,
         char: Character,
+        char_index: int,
         x: float, y: float, scale: float,
         color: Tuple[float, float, float, float],
-        start_index: int
+        start_index: int,
+        flip_y: bool
     ):
         uv = self.character_uvs[char.char]
 
@@ -435,15 +479,22 @@ class Font:
         bearing_gap = (char.size[1] - char.pack_rect[3]) * scale
         xpos = (x + char.bearing[0] * scale)
         ypos = (y - char.bearing[1] * scale) + bearing_gap
-        
+
         uvx1, uvy1, uvx2, uvy2 = uv
 
+        top_h = 0 if not flip_y else h
+        bot_h = h if not flip_y else 0
+
+        if flip_y:
+            ypos = (y + bearing_gap)
+
+        z = 1e-2 * (-1 if char_index % 2 == 0 else 1)
         vertices = [
-            # POSITION           # UVs                           # COLOR
-            xpos,     ypos,      uvx1, uvy1,  color[0], color[1], color[2], color[3],
-            xpos + w, ypos,      uvx2, uvy1,  color[0], color[1], color[2], color[3],
-            xpos + w, ypos + h,  uvx2, uvy2,  color[0], color[1], color[2], color[3],
-            xpos,     ypos + h,  uvx1, uvy2,  color[0], color[1], color[2], color[3]
+            # POSITION                  # UVs                           # COLOR
+            xpos,     ypos + top_h, z,  uvx1, uvy1,  color[0], color[1], color[2], color[3],
+            xpos + w, ypos + top_h, z,  uvx2, uvy1,  color[0], color[1], color[2], color[3],
+            xpos + w, ypos + bot_h, z,  uvx2, uvy2,  color[0], color[1], color[2], color[3],
+            xpos,     ypos + bot_h, z,  uvx1, uvy2,  color[0], color[1], color[2], color[3]
         ]
         indices = [ i + start_index for i in [ 0, 1, 2, 2, 3, 0 ] ]
 
@@ -464,7 +515,7 @@ class Font:
 
         return tx
 
-    def _generate_text_mesh(self, text: str, x: float, y: float, scale: float, color: Tuple[float, float, float, float], align: int):
+    def _generate_text_mesh(self, text: str, x: float, y: float, scale: float, color: Tuple[float, float, float, float], align: int, flip_y: bool):
         """Generate text mesh
 
         Args:
@@ -495,6 +546,7 @@ class Font:
                 case 2: ox = self._measure_text(line, scale)
                 case _: ox = 0
 
+            index = 0
             for c in list(line):
                 char = None
                 if c not in self.characters:
@@ -503,12 +555,13 @@ class Font:
                     char = self.characters[c]
                 
                 if not c.isspace():
-                    verts, inds = self._generate_char_vertices(char, tx - ox, ty, scale, color, start_offset)
+                    verts, inds = self._generate_char_vertices(char, index, tx - ox, ty, scale, color, start_offset, flip_y)
                     vertices.extend(verts)
                     indices.extend(inds)
                     start_offset += len(verts) // self._mesh.format.size
 
                 tx += char.advance * scale
+                index += 1
 
             tx = x
             ty += line_height

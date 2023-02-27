@@ -156,7 +156,7 @@ class App(Application):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
         view = self.camera.to_matrix4().inverse()
-        proj = Matrix4.from_perspective(math.pi / 5, self.display.get_width() / self.display.get_height(), 0.01, 10000.0)
+        proj = Matrix4.from_perspective(math.pi / 5, self.display.get_width() / self.display.get_height(), 0.01, 1000.0)
 
         self.shadow_shader.use()
         self.draw_shadows()
@@ -177,11 +177,12 @@ class App(Application):
         # Utils.draw_quad(self.shadow_buffer.depth_attachment, 0.01, -0.1, 0.8, 0.8 * aspect)
 
         ortho2d = Matrix4.from_orthographic(0, self.display.get_width(), self.display.get_height(), 0, -1, 1)
-        
+
         self.font.begin_drawing()
-        self.font.draw(f'Score: {self.score:06d}', 20.0, 70.0, scale=0.5)
         self.font.draw('Testing Some\nMultiline Text\nThis is just to test multiline\ntext and alignment!', 200.0, 150.0, scale=0.2, align=1, color=(1.0, 0.3, 0.9, 1.0))
         self.font.end_drawing(ortho2d)
+
+        
 
     def draw_scene(self, shader: Shader, view: Matrix4, proj: Matrix4, cull_level: bool=True):
         if cull_level: glDisable(GL_CULL_FACE)
@@ -190,6 +191,13 @@ class App(Application):
 
         self.draw_snake(shader, view, proj)
         self.draw_apples(shader, view, proj)
+
+        score_pos = Matrix4.from_translation(Vector3(0.0, 0.0, -15.0))
+        score_rot = Matrix4.from_angle_axis(-math.pi/4, Vector3(1, 0, 0))
+        score_scl = Matrix4.from_scale(Vector3(2.2, 2.2, 2.2))
+        self.font.begin_drawing()
+        self.font.draw_3d(f'Score: {self.score:06d}', transform=score_pos * score_rot * score_scl, align=1)
+        self.font.end_drawing(proj * view)
 
     def draw_shadows(self):
         self.shadow_shader.use()
