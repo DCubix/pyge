@@ -65,6 +65,15 @@ PyGE is a simple Python game engine built around pygame and PyOpenGL. It provide
         width="300" />
     </td>
   </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img
+        src="./.github/demo3.png"
+        alt="3D snake game"
+        title="3D snake game"
+        width="600" />
+    </td>
+  </tr>
 </table>
 
 <!-- ## :sparkles: Features ##
