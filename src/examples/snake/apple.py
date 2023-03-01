@@ -1,8 +1,9 @@
+import pyge_import
+
 from pyge.animation import ease_out_elastic, ease_in_out_cubic
 from pyge.animation import TargetAnimator, FloatInterpolator
 from pyge.rendering import Mesh, Texture2D, Shader
 from pyge.vmath import Vector3, Transform, Quaternion
-
 
 class Apple:
     apple_mesh: Mesh = None
@@ -17,8 +18,8 @@ class Apple:
 
     def __init__(self):
         if not Apple.apple_mesh:
-            Apple.apple_mesh = Mesh.from_wavefront('assets/apple.obj')['mesh']
-            Apple.apple_tex = Texture2D.from_image_file('assets/apple.png')
+            Apple.apple_mesh = Mesh.from_wavefront(f'{pyge_import.assets_folder}/apple.obj')['mesh']
+            Apple.apple_tex = Texture2D.from_image_file(f'{pyge_import.assets_folder}/apple.png')
 
         self.transform = Transform()
         self.state = Apple.SPAWNING

@@ -1,3 +1,5 @@
+import pyge_import
+
 from typing import List
 from apple import Apple
 from pyge.application import Application
@@ -16,29 +18,29 @@ class App(Application):
     def __init__(self):
         self.setup(opengl=True, size=(1280, 720))
 
-        self.font = Font('assets/allegro.ttf')
+        self.font = Font(f'{pyge_import.assets_folder}/allegro.ttf')
 
-        self.snake_body_mesh = Mesh.from_wavefront('assets/snake_body.obj')['mesh']
-        self.snake_tail_mesh = Mesh.from_wavefront('assets/snake_tail.obj')['mesh']
-        self.snake_head_mesh = Mesh.from_wavefront('assets/snake_head.obj')['mesh']
+        self.snake_body_mesh = Mesh.from_wavefront(f'{pyge_import.assets_folder}/snake_body.obj')['mesh']
+        self.snake_tail_mesh = Mesh.from_wavefront(f'{pyge_import.assets_folder}/snake_tail.obj')['mesh']
+        self.snake_head_mesh = Mesh.from_wavefront(f'{pyge_import.assets_folder}/snake_head.obj')['mesh']
 
-        self.apple_mesh = Mesh.from_wavefront('assets/apple.obj')['mesh']
+        self.apple_mesh = Mesh.from_wavefront(f'{pyge_import.assets_folder}/apple.obj')['mesh']
 
-        self.level_meshes = Mesh.from_wavefront('assets/level.obj')
+        self.level_meshes = Mesh.from_wavefront(f'{pyge_import.assets_folder}/level.obj')
         print(self.level_meshes.keys())
 
-        self.snake_tex = Texture2D.from_image_file('assets/snake.png')
-        self.apple_tex = Texture2D.from_image_file('assets/apple.png')
-        self.level_tex = Texture2D.from_image_file('assets/grass.png')
+        self.snake_tex = Texture2D.from_image_file(f'{pyge_import.assets_folder}/snake.png')
+        self.apple_tex = Texture2D.from_image_file(f'{pyge_import.assets_folder}/apple.png')
+        self.level_tex = Texture2D.from_image_file(f'{pyge_import.assets_folder}/grass.png')
 
         self.shader = Shader()
-        self.shader.add_shader_from_file("shaders/default.vert", GL_VERTEX_SHADER)
-        self.shader.add_shader_from_file("shaders/default.frag", GL_FRAGMENT_SHADER)
+        self.shader.add_shader_from_file(f'{pyge_import.assets_folder}/shaders/default.vert', GL_VERTEX_SHADER)
+        self.shader.add_shader_from_file(f'{pyge_import.assets_folder}/shaders/default.frag', GL_FRAGMENT_SHADER)
         self.shader.link()
 
         self.shadow_shader = Shader()
-        self.shadow_shader.add_shader_from_file("shaders/shadow.vert", GL_VERTEX_SHADER)
-        self.shadow_shader.add_shader_from_file("shaders/shadow.frag", GL_FRAGMENT_SHADER)
+        self.shadow_shader.add_shader_from_file(f'{pyge_import.assets_folder}/shaders/shadow.vert', GL_VERTEX_SHADER)
+        self.shadow_shader.add_shader_from_file(f'{pyge_import.assets_folder}/shaders/shadow.frag', GL_FRAGMENT_SHADER)
         self.shadow_shader.link()
 
         self.shadow_buffer = RenderTarget(1024, 1024)
