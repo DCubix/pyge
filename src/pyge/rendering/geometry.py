@@ -6,6 +6,8 @@ import numpy.typing as npt
 
 from OpenGL.GL import *
 
+from ..vmath import Vector2, Vector3
+
 class VertexFormat:
 	def __init__(self):
 		self.fields = []
@@ -85,6 +87,30 @@ class Buffer:
 		glBindBuffer(self.target, self.id)
 
 
+class Vertex:
+	format: VertexFormat.from_list([
+		(3, False, GL_FLOAT), # POS
+		(3, False, GL_FLOAT), # NRM
+		(2, False, GL_FLOAT), # TEX
+		(3, False, GL_FLOAT) # TAN (CALCULATED)
+	])
+
+	def __init__(self):
+		self.position = Vector3()
+		self.normal = Vector3()
+		self.tex_coords = Vector2()
+		self.tangent = Vector3()
+
+	@property
+	def raw(self):
+		return [
+			*self.position.raw,
+			*self.normal.raw,
+			*self.tex_coords.raw,
+			*self.tangent.raw
+		]
+
+
 class Mesh:
 	def __init__(self, format: VertexFormat):
 		self.format = format
@@ -110,9 +136,10 @@ class Mesh:
 	@staticmethod
 	def from_wavefront(file_path: str):
 		fmt = VertexFormat.from_list([
-			(3, False, GL_FLOAT),
-			(3, True, GL_FLOAT),
-			(2, False, GL_FLOAT)
+			(3, False, GL_FLOAT), # POS
+			(3, False, GL_FLOAT), # NRM
+			(2, False, GL_FLOAT), # TEX
+			(3, False, GL_FLOAT) # TAN (CALCULATED)
 		])
 
 		lines = []
@@ -207,26 +234,64 @@ class Mesh:
 			else:
 				continue
 
+		def calculate_tangents(vertices: List[Vertex], i1: int, i2: int, i3: int):
+			v0 = vertices[i1].position
+			v1 = vertices[i2].position
+			v2 = vertices[i3].position
+
+			t0 = vertices[i1].tex_coords
+			t1 = vertices[i2].tex_coords
+			t2 = vertices[i3].tex_coords
+
+			e0 = v1 - v0
+			e1 = v2 - v0
+
+			dt1 = t1 - t0
+			dt2 = t2 - t0
+
+			dividend = dt1.x * dt2.y - dt1.y * dt2.x
+			f = 0.0 if abs(dividend) <= 1e-5 else 1.0 / dividend
+
+			tangent = Vector3(
+				x=(f * (dt2.y * e0.x - dt1.y * e1.x)),
+				y=(f * (dt2.y * e0.y - dt1.y * e1.y)),
+				z=(f * (dt2.y * e0.z - dt1.y * e1.z))
+			)
+
+			return tangent
+
 		def convert_mesh(raw_positions: list, raw_normals: list, raw_tex_coords: list, raw_faces: list):
 			vertices = []
 			indices = []
 
+			vertex_data: List[Vertex] = []
+
 			i = 0
 			for v, vt, vn in raw_faces:
-				vertices.extend(list(raw_positions[v]))
+				vert = Vertex()
+				vert.position = Vector3(*raw_positions[v])
 
-				if vn:
-					vertices.extend(list(raw_normals[vn]))
-				else:
-					vertices.extend([0.0, 0.0, 0.0])
-				
-				if vt:
-					vertices.extend(list(raw_tex_coords[vt]))
-				else:
-					vertices.extend([0.0, 0.0])
+				if vn: vert.normal = Vector3(*raw_normals[vn])
+				if vt: vert.tex_coords = Vector2(*raw_tex_coords[vt])
 
 				indices.append(i)
 				i += 1
+
+				vertex_data.append(vert)
+
+			# Calculate tangents
+			for i in range(0, len(indices), 3):
+				i1 = indices[i + 0]
+				i2 = indices[i + 1]
+				i3 = indices[i + 2]
+				vertex_data[i].tangent += calculate_tangents(vertex_data, i1, i2, i3)
+
+			# normalize tangents
+			for vert in vertex_data:
+				vert.tangent.normalize_self()
+
+			raw_vertex_data = [ v.raw for v in vertex_data ]
+			vertices = [ item for sublist in raw_vertex_data for item in sublist ]
 
 			mesh = Mesh(fmt)
 			mesh.update(np.array(vertices, dtype=np.float32), np.array(indices, dtype=np.uint32))

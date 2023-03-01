@@ -798,7 +798,7 @@ class Vector2:
         return self.x == other.x and self.y == other.y
 
     def __add__(self, other):
-        return Vector3(self.x + other.x, self.y + other.y)
+        return Vector2(self.x + other.x, self.y + other.y)
 
     def __iadd__(self, other):
         self.x += other.x
@@ -806,7 +806,7 @@ class Vector2:
         return self
 
     def __mul__(self, n):
-        return Vector3(self.x * n, self.y * n)
+        return Vector2(self.x * n, self.y * n)
 
     def __imul__(self, n):
         self.x *= n
@@ -816,7 +816,7 @@ class Vector2:
     __rmul__ = __mul__
 
     def __sub__(self, other):
-        return Vector3(self.x - other.x, self.y - other.y)
+        return Vector2(self.x - other.x, self.y - other.y)
 
     def __isub__(self, other):
         self.x -= other.x
@@ -824,15 +824,19 @@ class Vector2:
         return self
 
     def __neg__(self):
-        return Vector3(-self.x, -self.y)
+        return Vector2(-self.x, -self.y)
 
     def __copy__(self):
-        return Vector3(self.x, self.y)
+        return Vector2(self.x, self.y)
 
     copy = __copy__
 
     def __repr__(self):
         return 'Vector2({:0.4f}, {:0.4f})'.format(self.x, self.y)
+    
+    @property
+    def raw(self):
+        return [self.x, self.y]
 
 
 class Vector4:
@@ -871,7 +875,7 @@ class Vector4:
         return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w
 
     def __add__(self, other):
-        return Vector3(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w)
+        return Vector4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w)
 
     def __iadd__(self, other):
         self.x += other.x
@@ -881,7 +885,7 @@ class Vector4:
         return self
 
     def __mul__(self, n):
-        return Vector3(self.x * n, self.y * n, self.z * n, self.w * n)
+        return Vector4(self.x * n, self.y * n, self.z * n, self.w * n)
 
     def __imul__(self, n):
         self.x *= n
@@ -893,7 +897,7 @@ class Vector4:
     __rmul__ = __mul__
 
     def __sub__(self, other):
-        return Vector3(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w)
+        return Vector4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w)
 
     def __isub__(self, other):
         self.x -= other.x
@@ -903,10 +907,10 @@ class Vector4:
         return self
 
     def __neg__(self):
-        return Vector3(-self.x, -self.y, -self.z, -self.w)
+        return Vector4(-self.x, -self.y, -self.z, -self.w)
 
     def __copy__(self):
-        return Vector3(self.x, self.y, self.z, self.w)
+        return Vector4(self.x, self.y, self.z, self.w)
 
     copy = __copy__
 
@@ -927,22 +931,3 @@ class Ray:
 
     def __repr__(self):
         return 'Ray({}, {})'.format(self.position, self.direction)
-
-
-_py_vmath_types = {typename: globals()[typename] for typename in __all__}
-
-
-def _use_types(types):
-    global Vector3, Matrix4, Transform, Quaternion, Vector2, Vector4, Ray
-    d = globals()
-    for typename in __all__:
-        type_ = types[typename]
-        d[typename] = type_
-
-
-def use_py_types():
-    _use_types(_py_vmath_types)
-
-
-def use_c_types():
-    _use_types(_c_vmath_types)
