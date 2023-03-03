@@ -116,16 +116,18 @@ class TextureCubeMap(Texture):
     NEGATIVE_Y = 3
     POSITIVE_Z = 4
     NEGATIVE_Z = 5
+    DEFAULT_MIPS = 6
 
-    def __init__(self, width: int, height: int, internalFormat: GLenum):
+    def __init__(self, width: int, height: int, internalFormat: GLenum, levels: int = 1):
         super().__init__(2, GL_TEXTURE_CUBE_MAP, internalFormat)
         self.size[0] = width
         self.size[1] = height
+        self.levels = levels
         self.setup()
     
     def setup(self):
-        glTextureStorage2D(self.id, 1, self.internalFormat, self.size[0], self.size[1])
-    
+        glTextureStorage2D(self.id, self.levels, self.internalFormat, self.size[0], self.size[1])
+
     def update(self, data: npt.NDArray, format: GLenum, type: GLenum):
         """For cubemaps this will only update POSITIVE_X!"""
         self.update_face(0, data, format, type)
@@ -144,3 +146,47 @@ class TextureCubeMap(Texture):
             type,
             data
         )
+
+    @staticmethod
+    def from_file(file_path: str):
+        """Loads a cubemap from an image file in the following format:
+                +------+
+                |  +Y  |
+                |      |
+        +-------+------+------+------+
+        |  -Z   |  -X  |  +Z  |  +X  |
+        |       |      |      |      |
+        +-------+------+------+------+
+                |  -Y  |
+                |      |
+                +------+
+
+        Args:
+            file_path (str): Path to the image file
+        """
+        img = Image.open(file_path).convert('RGB')
+
+        tw = img.width // 4
+        th = img.height // 3
+
+        def slice(indexX, indexY):
+            x, y = indexX * tw, indexY * th
+            area = (x, y, x+tw, y+th)
+            return img.crop(area)
+        
+        indices = [
+            (3, 1, TextureCubeMap.POSITIVE_X),
+            (1, 1, TextureCubeMap.NEGATIVE_X),
+            (1, 0, TextureCubeMap.POSITIVE_Y),
+            (1, 2, TextureCubeMap.NEGATIVE_Y),
+            (2, 1, TextureCubeMap.POSITIVE_Z),
+            (0, 1, TextureCubeMap.NEGATIVE_Z)
+        ]
+
+        tex = TextureCubeMap(tw, th, GL_RGB8, TextureCubeMap.DEFAULT_MIPS)
+        for x, y, face in indices:
+            subimg = slice(x, y).transpose(Image.FLIP_TOP_BOTTOM)
+            tex.update_face(face, np.array(subimg, dtype=np.uint8), GL_RGB, GL_UNSIGNED_BYTE)
+        tex.generate_mipmaps()
+        
+        return tex

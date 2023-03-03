@@ -88,7 +88,7 @@ class Buffer:
 
 
 class Vertex:
-	format: VertexFormat.from_list([
+	format: VertexFormat = VertexFormat.from_list([
 		(3, False, GL_FLOAT), # POS
 		(3, False, GL_FLOAT), # NRM
 		(2, False, GL_FLOAT), # TEX
@@ -135,13 +135,6 @@ class Mesh:
 
 	@staticmethod
 	def from_wavefront(file_path: str):
-		fmt = VertexFormat.from_list([
-			(3, False, GL_FLOAT), # POS
-			(3, False, GL_FLOAT), # NRM
-			(2, False, GL_FLOAT), # TEX
-			(3, False, GL_FLOAT) # TAN (CALCULATED)
-		])
-
 		lines = []
 		with open(file_path, 'r') as fp:
 			lines = fp.readlines()
@@ -293,7 +286,7 @@ class Mesh:
 			raw_vertex_data = [ v.raw for v in vertex_data ]
 			vertices = [ item for sublist in raw_vertex_data for item in sublist ]
 
-			mesh = Mesh(fmt)
+			mesh = Mesh(Vertex.format)
 			mesh.update(np.array(vertices, dtype=np.float32), np.array(indices, dtype=np.uint32))
 
 			return mesh

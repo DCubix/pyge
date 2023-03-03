@@ -4,6 +4,8 @@ import OpenGL.GL
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileShader, compileProgram
 
+from pyge.vmath import Vector2, Vector3, Vector4, Matrix4
+
 class Shader:
 	def __init__(self):
 		self.program = None
@@ -43,6 +45,21 @@ class Shader:
 		else:
 			return None
 		return self._uniforms[name]
+
+	def set_uniform_vector(self, name: str, v: Vector2 | Vector3 | Vector4 | Matrix4):
+		loc = self.get_uniform_location(name)
+		if loc is None: return
+
+		if isinstance(v, Vector2):
+			glUniform2f(loc, v.x, v.y)
+		elif isinstance(v, Vector3):
+			glUniform3f(loc, v.x, v.y, v.z)
+		elif isinstance(v, Vector4):
+			glUniform4f(loc, v.x, v.y, v.z, v.w)
+		elif isinstance(v, Matrix4):
+			glUniformMatrix4fv(loc, 1, False, v.raw)
+		else:
+			return
 
 	def set_uniform(self, name: str, *value):
 		if len(value) == 0: raise Exception(f'Invalid value.')

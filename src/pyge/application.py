@@ -32,6 +32,7 @@ class Application:
             glEnable(GL_DEPTH_TEST)
             glEnable(GL_CULL_FACE)
             glEnable(GL_MULTISAMPLE)
+            glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS)
 
         pygame.display.flip()
         pygame.display.set_caption(title)
