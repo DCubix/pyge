@@ -42,11 +42,11 @@ class ImageBasedLightingBRDFLUT(TextureGenerator):
     def __init__(self, out_width: int, out_height: int):
         super().__init__()
 
-        self.output = Texture2D(out_width, out_height, GL_RGBA8)
+        self.output = Texture2D(out_width, out_height, GL_RG8)
 
     def process(self):
         self.begin_processing()
-        glBindImageTexture(0, self.output.id, 0, False, 0, GL_WRITE_ONLY, GL_RGBA8)
+        glBindImageTexture(0, self.output.id, 0, False, 0, GL_WRITE_ONLY, GL_RG8)
         self.shader.set_uniform('uOutput', 0)
         self.dispatch(self.output.size[0], self.output.size[1])
         return self.output
@@ -55,7 +55,7 @@ class ImageBasedLightingBRDFLUT(TextureGenerator):
         return """#version 460
         layout (local_size_x=4, local_size_y=4) in;
 
-        layout (rgba8, binding=0) uniform image2D uOutput;
+        layout (rg8, binding=0) uniform image2D uOutput;
 
         #define PI 3.141592654
 
@@ -190,8 +190,6 @@ class PrefilteredCubeMap(TextureGenerator):
         self.begin_processing()
         
         self.original.bind(1)
-        
-        self.sampler.bind(0)
         self.sampler.bind(1)
 
         self.shader.set_uniform('uInput', 1)

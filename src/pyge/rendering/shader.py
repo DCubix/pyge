@@ -29,7 +29,7 @@ class Shader:
 		self.add_shader(source, type)
 	
 	def link(self):
-		self.program = compileProgram(*self._shaders)
+		self.program = compileProgram(*self._shaders, validate=False)
 		self._linked = True
 	
 	def discard(self):

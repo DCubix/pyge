@@ -20,7 +20,7 @@ class Sampler:
         glSamplerParameteri(self.id, GL_TEXTURE_MIN_FILTER, min_filter)
         glSamplerParameteri(self.id, GL_TEXTURE_MAG_FILTER, mag_filter)
     
-    def bind(self, unit: int=0):
+    def bind(self, unit: int):
         glBindSampler(unit, self.id)
 
 
