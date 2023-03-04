@@ -8,6 +8,7 @@ uniform samplerCube uEnvMap;
 uniform sampler2D uEnvBRDF;
 
 uniform vec2 uRoughnessMetallic;
+uniform vec3 uBaseColor;
 
 const vec3 lightVector = vec3(1.0, 1.0, 1.0); // temporary
 
@@ -20,13 +21,10 @@ in DATA {
 } fsIn;
 
 #define PI 3.141592654
+#define LAMBERT (1.0 / PI)
 
 float pow5(float x) {
     return x * x * x * x * x;
-}
-
-vec3 DiffuseBRDF(vec3 color) {
-    return color / PI;
 }
 
 float D(float NdH, float roughness) {
@@ -50,29 +48,27 @@ vec3 F(float product, vec3 f0) {
     return mix(f0, vec3(1.0), pow5(x));
 }
 
-vec3 F_Rough(float cosTheta, vec3 F0, float roughness) {
-    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}  
-
 vec3 cookTorranceSpecular(float NdL, float NdH, float NdV, vec3 specular, float roughness) {
     float Dfact = D(NdH, roughness);
     float Gfact = G(NdV, NdL, roughness);
-    float rim = mix(1.0 - roughness * 0.9, 1.0, NdV);
-    return (1.0 / rim) * specular * Dfact * Gfact;
+    return specular * Dfact * Gfact;
 }
 
-vec3 iblLighting(vec3 N, vec3 R, float NdV, vec3 f0, vec3 baseColor, float roughness) {
-    vec3 F = F_Rough(NdV, f0, roughness);
-    vec3 Ks = F;
-    vec3 Kd = 1.0 - Ks;
+vec3 iblLighting(vec3 N, vec3 R, float NdV, vec3 baseColor, float roughness, float metallic) {
+    vec3 f0 = mix(vec3(0.04), baseColor, metallic);
+    vec3 fr = max(vec3(1.0 - roughness), f0) - f0;
+
+    vec3 Ffact = f0 + fr * pow5(1.0 - NdV);
+    vec3 Ks = Ffact;
+    vec3 Kd = (1.0 - Ks) * (1.0 - metallic);
 
     vec3 irradiance = textureLod(uEnvMap, N, 6.0).rgb;
-    vec3 diffuse = irradiance * DiffuseBRDF(baseColor);
+    vec3 diffuse = irradiance * baseColor * LAMBERT;
 
     const float MAX_REFLECTION_LOD = 6.0;
     vec3 prefilteredColor = textureLod(uEnvMap, R, roughness * MAX_REFLECTION_LOD).rgb;   
     vec2 envBRDF  = texture(uEnvBRDF, vec2(NdV, roughness)).rg;
-    vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+    vec3 specular = prefilteredColor * (Ffact * envBRDF.x + envBRDF.y);
 
     return (Kd * diffuse + specular); // * ao
 }
@@ -87,29 +83,28 @@ void main() {
     
     float roughness = uRoughnessMetallic.x;
     float metallic = uRoughnessMetallic.y;
-    const vec3 baseColor = vec3(0.5, 0.0, 0.0);
-    const vec3 f0 = mix(vec3(0.04), baseColor, metallic);
+    vec3 baseColor = uBaseColor;
+    vec3 f0 = mix(vec3(0.04), baseColor, metallic);
 
     float NdL = max(dot(N, L), 0.0);
     float NdV = max(dot(N, V), 1e-5);
     float NdH = max(dot(N, H), 1e-5);
     float HdV = max(dot(H, V), 1e-5);
 
-    vec3 Lo = iblLighting(N, R, NdV, f0, baseColor, roughness);
+    vec3 Lo = iblLighting(N, R, NdV, baseColor, roughness, metallic);
 
-    // lighting
+    // // lighting
     vec3 Ffact = F(HdV, f0);
     vec3 Ks = Ffact;
-    vec3 Kd = 1.0 - Ks;
-    Kd *= (1.0 - metallic);
+    vec3 Kd = (1.0 - Ks) * (1.0 - metallic);
     
     vec3 NDFG = cookTorranceSpecular(NdL, NdH, NdV, f0, roughness);
     vec3 numerator    = NDFG * Ffact;
-    float denominator = 4.0 * NdV * NdL + 1e-5;
+    float denominator = max(4.0 * NdV * NdL, 1e-5);
     vec3 specular     = numerator / denominator;  
         
     // add to outgoing radiance Lo          
-    Lo += (Kd * DiffuseBRDF(baseColor) + specular) /* TODO: Light color * radiance */ * NdL;
+    Lo += (Kd * baseColor * LAMBERT + specular) /* TODO: Light color * radiance */ * NdL;
 
     // gamma correct
     vec3 color = Lo; // TODO: color is going to be ambient + Lo

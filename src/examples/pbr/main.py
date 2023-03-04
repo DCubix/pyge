@@ -2,7 +2,7 @@ import pyge_import
 
 from pyge.application import Application
 from pyge.rendering import Mesh, Shader, TextureCubeMap, Sampler, PrefilteredCubeMap, ImageBasedLightingBRDFLUT
-from pyge.vmath import Matrix4, Vector3, Transform, Quaternion
+from pyge.vmath import Matrix4, Vector3, Vector2, Transform, Quaternion
 
 import math, pygame, random
 import numpy as np
@@ -14,22 +14,35 @@ class App(Application):
     def __init__(self):
         self.setup(opengl=True, size=(1280, 720))
 
+        self.sphere_count = 4
+        self.colors = []
+        self.rms = []
+        for _ in range(self.sphere_count ** 2):
+            r = random.uniform(0.01, 0.8)
+            g = random.uniform(0.01, 0.8)
+            b = random.uniform(0.01, 0.8)
+            self.colors.append(Vector3(r, g, b))
+
+            rough = random.uniform(0.0, 1.0)
+            metal = random.uniform(0.0, 1.0)
+            self.rms.append(Vector2(rough, metal))
+
         # Camera-related
-        cam_pos = Vector3(12.0, 5.0, 30.0)
+        cam_pos = Vector3(0.0, 0.0, (22.0 * self.sphere_count / 5))
         self.camera = Transform(translation=cam_pos, rotation=Quaternion.from_look_at(cam_pos, Vector3(0.0, 0.0, 0.0)))
         self.projection = Matrix4.from_perspective(math.pi / 5, self.aspect, 0.01, 500.0)
 
         # Application-related
         self.rotation = 0.0
 
-        self.test_mesh = Mesh.from_wavefront(f'{assets}/ball.obj')['mesh']
+        self.test_mesh = Mesh.from_wavefront(f'{assets}/monke.obj')['mesh']
 
         self.shader = Shader()
         self.shader.add_shader_from_file(f'{assets}/shaders/default.vert', GL_VERTEX_SHADER)
         self.shader.add_shader_from_file(f'{assets}/shaders/default.frag', GL_FRAGMENT_SHADER)
         self.shader.link()
 
-        self.env_map = TextureCubeMap.from_file(f'{assets}/cubemap2.jpg')
+        self.env_map = TextureCubeMap.from_file(f'{assets}/cubemap1.jpg')
 
         prefilterer = PrefilteredCubeMap(self.env_map)
         self.env_map = prefilterer.process()
@@ -68,15 +81,18 @@ class App(Application):
         self.shader.set_uniform_vector('uEyePosition', self.camera.translation)
         self.shader.set_uniform('uTime', self.rotation)
 
-        for y in range(7):
-            for x in range(7):
-                fx = ((x / 6) * 2.0 - 1.0) * 6.5
-                fy = ((y / 6) * 2.0 - 1.0) * 6.5
+        count = self.sphere_count
+        div_count = (count-1) if count > 1 else 1
+        for y in range(count):
+            for x in range(count):
+                fx = ((x / div_count) * 2.0 - 1.0) * (div_count+0.2)
+                fy = ((y / div_count) * 2.0 - 1.0) * (div_count+0.2)
 
-                model = Matrix4.from_translation(Vector3(fx, fy, 0.0)) # * Matrix4.from_angle_axis(self.rotation, Vector3(0.0, 1.0, 0.0))
+                model = Matrix4.from_translation(Vector3(fx, fy, 0.0))
 
-                self.shader.set_uniform('uRoughnessMetallic', x/6, y/6)
+                self.shader.set_uniform_vector('uRoughnessMetallic', self.rms[x + y * count])
                 self.shader.set_uniform_vector('uModel', model)
+                self.shader.set_uniform_vector('uBaseColor', self.colors[x + y * count])
 
                 self.test_mesh.draw()
 
