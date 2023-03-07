@@ -29,8 +29,8 @@ class Application:
         self.display: Surface = pygame.display.set_mode(size=size, flags=flags)
 
         if opengl:
-            glEnable(GL_DEPTH_TEST)
-            glEnable(GL_CULL_FACE)
+            # glEnable(GL_DEPTH_TEST)
+            # glEnable(GL_CULL_FACE)
             glEnable(GL_MULTISAMPLE)
             glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS)
 

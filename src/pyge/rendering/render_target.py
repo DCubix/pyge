@@ -48,20 +48,16 @@ class RenderTarget:
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self.id)
         glViewport(0, 0, self.size[0], self.size[1])
 
-    def add_color_attachment(self, tex: Texture, mip: int = 0):
+    def add_color_attachment(self, internal_format: GLenum, mip: int = 0):
         w, h = self.size
-        if w != tex.size[0]:
-            raise Exception('Invalid texture format. Must be the same size as the FBO.')
-
-        if tex.dimensions >= 2 and h != tex.size[1]:
-            raise Exception('Invalid texture format. Must be the same size as the FBO.')
-
+        tex = Texture2D(w, h, internal_format)
+        
         attachments = [ GL_COLOR_ATTACHMENT0 + i for i in range(len(self.color_attachments)+1) ]
 
         glNamedFramebufferTexture(self.id, attachments[-1], tex.id, mip)
         glNamedFramebufferDrawBuffers(self.id, len(attachments), attachments)
 
-        glCheckNamedFramebufferStatus(self.id, GL_FRAMEBUFFER)
+        print(glCheckNamedFramebufferStatus(self.id, GL_FRAMEBUFFER))
 
         self.color_attachments.append(tex)
 
@@ -70,7 +66,7 @@ class RenderTarget:
         tex = Texture2D(w, h, GL_DEPTH_COMPONENT24)
 
         glNamedFramebufferTexture(self.id, GL_DEPTH_ATTACHMENT, tex.id, 0)
-        glCheckNamedFramebufferStatus(self.id, GL_FRAMEBUFFER)
+        print(glCheckNamedFramebufferStatus(self.id, GL_FRAMEBUFFER))
 
         self.depth_attachment = tex
     
@@ -79,7 +75,7 @@ class RenderTarget:
         tex = Texture2D(w, h, GL_R8)
 
         glNamedFramebufferTexture(self.id, GL_STENCIL_ATTACHMENT, tex.id, 0)
-        glCheckNamedFramebufferStatus(self.id, GL_FRAMEBUFFER)
+        print(glCheckNamedFramebufferStatus(self.id, GL_FRAMEBUFFER))
 
         self.stencil_attachment = tex
 
@@ -93,4 +89,4 @@ class RenderTarget:
 
         glNamedRenderbufferStorage(rbo_id, internalFormat, w, h)
         glNamedFramebufferRenderbuffer(self.id, attachment, GL_RENDERBUFFER, rbo_id)
-        glCheckNamedFramebufferStatus(self.id, GL_FRAMEBUFFER)
+        print(glCheckNamedFramebufferStatus(self.id, GL_FRAMEBUFFER))
