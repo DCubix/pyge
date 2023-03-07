@@ -68,6 +68,16 @@ vec3 iblLighting(vec3 N, vec3 R, float NdV, vec3 baseColor, float roughness, flo
     return Kd * diffuse + specular; // * ao
 }
 
+vec3 ACES(vec3 x)
+{
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0., 1.);
+}
+
 void main() {
     vec3 rN = texture(uGB_Normals, vUV).xyz;
     vec3 rP = texture(uGB_Positions, vUV).xyz;
@@ -109,7 +119,7 @@ void main() {
     // gamma correct
     vec3 color = Lo; // TODO: color is going to be ambient + Lo
 
-    color = color / (color + vec3(1.0));
+    color = ACES(color);
     color = pow(color, vec3(1.0/2.2)); 
 
     fragColor = vec4(color, 1.0);
