@@ -15,25 +15,58 @@ in DATA {
 uniform vec2 uRoughnessMetallic;
 uniform vec3 uBaseColor;
 
-// TODO: Textures, normal mapping, etc...
+// TODO: normal mapping
 uniform sampler2D uAlbedoMap;
 uniform bool uAlbedoMapOn;
+uniform bool uAlbedoMapTriplanar;
 
 uniform sampler2D uRoughnessMetallicMap;
 uniform bool uRoughnessMetallicMapOn;
+uniform bool uRoughnessMetallicMapTriplanar;
+
+vec3 triplanarMapping(sampler2D tex, vec3 wP, vec3 N) {
+    vec2 uv_front = wP.xy;
+    vec2 uv_side = wP.zy;
+    vec2 uv_top = wP.xz;
+
+    // read texture at uv position of the three projections
+    vec3 col_front = texture(tex, uv_front).rgb;
+    vec3 col_side = texture(tex, uv_side).rgb;
+    vec3 col_top = texture(tex, uv_top).rgb;
+
+    vec3 weights = abs(normalize(N));
+    weights /= (weights.x + weights.y + weights.z);
+
+    col_front *= weights.z;
+    col_side *= weights.x;
+    col_top *= weights.y;
+
+    return (col_front + col_side + col_top);
+}
 
 void main() {
+    vec3 P = fsIn.position.xyz;
+    oPositions = fsIn.position.xyz;
+
     oAlbedo = uBaseColor;
 
     if (uAlbedoMapOn) {
-        oAlbedo = texture(uAlbedoMap, fsIn.uv).rgb;
+        if (uAlbedoMapTriplanar) {
+            oAlbedo = triplanarMapping(uAlbedoMap, P, fsIn.normal);
+        } else {
+            oAlbedo = texture(uAlbedoMap, fsIn.uv).rgb;
+        }
     }
 
+    // TODO: Normal mapping
     oNormals = fsIn.normal * 0.5 + 0.5;
-    oPositions = fsIn.position.xyz;
-    oMaterial = vec3(uRoughnessMetallic, 0.0);
 
+    oMaterial = vec3(uRoughnessMetallic, 0.0);
     if (uRoughnessMetallicMapOn) {
-        oMaterial.rg = texture(uRoughnessMetallicMap, fsIn.uv).rg;
+        if (uRoughnessMetallicMapTriplanar) {
+            oMaterial.rg = triplanarMapping(uRoughnessMetallicMap, fsIn.position.xyz, fsIn.normal).rg;
+        } else {
+            oMaterial.rg = texture(uRoughnessMetallicMap, fsIn.uv).rg;
+        }
     }
 }

@@ -21,14 +21,14 @@ class App(Application):
         self.renderer = DeferredRenderer(self.display.get_width(), self.display.get_height())
 
         # Camera-related
-        cam_pos = Vector3(-2.0, 3.0, (24.0 * self.sphere_count / 5))
+        cam_pos = Vector3(-2.0, 2.0, (18.0 * self.sphere_count / 5))
         self.camera = Transform(translation=cam_pos, rotation=Quaternion.from_look_at(cam_pos, Vector3(0.0, 0.0, 0.0)))
         self.projection = Matrix4.from_perspective(math.pi / 5, self.aspect, 0.01, 500.0)
 
         # Application-related        
-        self.test_mesh = Mesh.from_wavefront(f'{assets}/test.obj')['mesh']
-        self.albedo_tex = Texture2D.from_image_file(f'{assets}/albedo.png')
-        self.rm_tex = Texture2D.from_image_file(f'{assets}/roughness_metallic.png')
+        self.test_mesh = Mesh.from_wavefront(f'{assets}/monke.obj')['mesh']
+        self.albedo_tex = Texture2D.from_image_file(f'{assets}/rust_albedo.png')
+        self.rm_tex = Texture2D.from_image_file(f'{assets}/rust_roughness_metallic.png')
 
         self.rotation = 0.0
 
@@ -40,11 +40,13 @@ class App(Application):
             rough = random.uniform(0.0, 1.0)
             metal = random.uniform(0.0, 1.0)
             mat = PBRMaterial()
-            mat.roughness = rough
-            mat.metallic = metal
+            mat.roughness = 0.9
+            mat.metallic = 0.0
             mat.base_color = Vector3(r, g, b)
-            mat.albedo = self.albedo_tex
+            mat.albedo_map = self.albedo_tex
             mat.roughness_metallic_map = self.rm_tex
+            mat.albedo_map_triplanar = True
+            mat.roughness_metallic_triplanar = True
             self.materials.append(mat)
 
         self.shader = Shader()

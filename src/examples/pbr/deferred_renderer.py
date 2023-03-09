@@ -10,9 +10,13 @@ from OpenGL.GL import *
 
 class PBRMaterial(Material):
     def __init__(self):
-        self.albedo: Texture2D = None
+        self.albedo_map: Texture2D = None
         self.normal_map: Texture2D = None
         self.roughness_metallic_map: Texture2D = None
+
+        self.albedo_map_triplanar = False
+        self.normal_map_triplanar = False
+        self.roughness_metallic_triplanar = False
 
         self.base_color: Vector3 = Vector3(1.0, 1.0, 1.0)
         self.roughness = 0.5
@@ -39,6 +43,10 @@ class GBufferPass(Pass):
             self.shader.add_shader_from_file(f'{assets}/shaders/gbuffer.frag', GL_FRAGMENT_SHADER)
             self.shader.link()
 
+        self.sampler = Sampler()
+        self.sampler.filter()
+        self.sampler.wrap(GL_REPEAT, GL_REPEAT)
+
     def on_render(self, models: List[Model], proj: Matrix4, view: Matrix4):
         Utils.push_enable_state([ GL_DEPTH_TEST, GL_CULL_FACE ])
 
@@ -56,16 +64,22 @@ class GBufferPass(Pass):
             model.material.on_apply(self.shader)
 
             mat: PBRMaterial = model.material
-            self.shader.set_uniform('uAlbedoMapOn', 1 if mat.albedo else 0)
+
+            self.shader.set_uniform('uAlbedoMapTriplanar', 1 if mat.albedo_map_triplanar else 0)
+            self.shader.set_uniform('uRoughnessMetallicMapTriplanar', 1 if mat.roughness_metallic_triplanar else 0)
+
+            self.shader.set_uniform('uAlbedoMapOn', 1 if mat.albedo_map else 0)
             self.shader.set_uniform('uRoughnessMetallicMapOn', 1 if mat.roughness_metallic_map else 0)
 
             slot = 0
-            if mat.albedo:
-                mat.albedo.bind(slot)
+            if mat.albedo_map:
+                self.sampler.bind(slot)
+                mat.albedo_map.bind(slot)
                 self.shader.set_uniform('uAlbedoMap', slot)
                 slot += 1
             
-            if mat.albedo:
+            if mat.roughness_metallic_map:
+                self.sampler.bind(slot)
                 mat.roughness_metallic_map.bind(slot)
                 self.shader.set_uniform('uRoughnessMetallicMap', slot)
                 slot += 1
