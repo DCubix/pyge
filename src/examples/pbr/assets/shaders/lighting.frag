@@ -68,14 +68,17 @@ vec3 iblLighting(vec3 N, vec3 R, float NdV, vec3 baseColor, float roughness, flo
     return Kd * diffuse + specular; // * ao
 }
 
-vec3 ACES(vec3 x)
-{
-    float a = 2.51f;
-    float b = 0.03f;
-    float c = 2.43f;
-    float d = 0.59f;
-    float e = 0.14f;
-    return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0., 1.);
+vec3 ACES(vec3 x) {
+    float a = 2.51;
+    float b = 0.03;
+    float c = 2.43;
+    float d = 0.59;
+    float e = 0.14;
+    return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
+}
+
+vec3 sRGBToLinear(vec3 sRGB) {
+    return pow(sRGB, vec3(1.0 / 2.2));
 }
 
 void main() {
@@ -93,7 +96,7 @@ void main() {
     
     float roughness = rM.x;
     float metallic = rM.y;
-    vec3 baseColor = rA.rgb * rA.a;
+    vec3 baseColor = sRGBToLinear(rA.rgb * rA.a);
     vec3 f0 = mix(vec3(0.04), baseColor, metallic);
 
     float NdL = max(dot(N, L), 0.0);

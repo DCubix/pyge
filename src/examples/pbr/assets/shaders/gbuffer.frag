@@ -44,6 +44,10 @@ vec3 triplanarMapping(sampler2D tex, vec3 wP, vec3 N) {
     return (col_front + col_side + col_top);
 }
 
+vec3 LinearTosRGB(vec3 linear) {
+    return pow(linear, vec3(2.2));
+}
+
 void main() {
     vec3 P = fsIn.position.xyz;
     oPositions = fsIn.position.xyz;
@@ -57,6 +61,8 @@ void main() {
             oAlbedo = texture(uAlbedoMap, fsIn.uv).rgb;
         }
     }
+
+    oAlbedo = LinearTosRGB(oAlbedo);
 
     // TODO: Normal mapping
     oNormals = fsIn.normal * 0.5 + 0.5;

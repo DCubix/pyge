@@ -3,7 +3,7 @@ assets = pyge_import.assets_folder
 
 from typing import List
 
-from pyge.rendering import Pass, Renderer, Model, RenderTarget, Shader, ShaderCache, Material, Texture2D, Utils, Sampler, TextureCubeMap, ImageBasedLightingBRDFLUT
+from pyge.rendering import Renderer, Model, RenderTarget, Shader, ShaderCache, Material, Texture2D, Utils, Sampler, TextureCubeMap, ImageBasedLightingBRDFLUT
 from pyge.vmath import Matrix4, Vector3
 
 from OpenGL.GL import *
@@ -26,10 +26,11 @@ class PBRMaterial(Material):
         shader.set_uniform('uRoughnessMetallic', self.roughness, self.metallic)
         shader.set_uniform_vector('uBaseColor', self.base_color)
 
-class GBufferPass(Pass):
+class DeferredRenderer(Renderer):
     def __init__(self, view_width: int, view_height: int):
-        super().__init__(1)
+        super().__init__(view_width, view_height)
 
+        # GBuffer Pass
         self.gbuffer = RenderTarget(view_width, view_height)
         self.gbuffer.add_color_attachment(GL_RGB8) ## Color/Albedo
         self.gbuffer.add_color_attachment(GL_RGB8) ## Normals
@@ -37,75 +38,25 @@ class GBufferPass(Pass):
         self.gbuffer.add_color_attachment(GL_RGB8) ## Material (Rough, Metallic...)
         self.gbuffer.add_depth_attachment()
 
-        self.shader = ShaderCache.get('_gbuffer')
-        if not self.shader.linked:
-            self.shader.add_shader_from_file(f'{assets}/shaders/gbuffer.vert', GL_VERTEX_SHADER)
-            self.shader.add_shader_from_file(f'{assets}/shaders/gbuffer.frag', GL_FRAGMENT_SHADER)
-            self.shader.link()
+        self.gbuffer_shader = ShaderCache.get('_gbuffer')
+        if not self.gbuffer_shader.linked:
+            self.gbuffer_shader.add_shader_from_file(f'{assets}/shaders/gbuffer.vert', GL_VERTEX_SHADER)
+            self.gbuffer_shader.add_shader_from_file(f'{assets}/shaders/gbuffer.frag', GL_FRAGMENT_SHADER)
+            self.gbuffer_shader.link()
 
         self.sampler = Sampler()
         self.sampler.filter()
         self.sampler.wrap(GL_REPEAT, GL_REPEAT)
 
-    def on_render(self, models: List[Model], proj: Matrix4, view: Matrix4):
-        Utils.push_enable_state([ GL_DEPTH_TEST, GL_CULL_FACE ])
+        # Lighting Pass
+        self.lighting_shader = ShaderCache.get('_lighting')
+        if not self.lighting_shader.linked:
+            self.lighting_shader.add_shader_from_file(f'{assets}/shaders/lighting.vert', GL_VERTEX_SHADER)
+            self.lighting_shader.add_shader_from_file(f'{assets}/shaders/lighting.frag', GL_FRAGMENT_SHADER)
+            self.lighting_shader.link()
 
-        self.gbuffer.bind()
-        glClearColor(0.0, 0.0, 0.0, 1.0)
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
-        self.shader.use()
-
-        self.shader.set_uniform_vector('uProjection', proj)
-        self.shader.set_uniform_vector('uView', view.inverse())
-
-        for model in models:
-            self.shader.set_uniform_vector('uModel', model.transform.to_matrix4())
-            model.material.on_apply(self.shader)
-
-            mat: PBRMaterial = model.material
-
-            self.shader.set_uniform('uAlbedoMapTriplanar', 1 if mat.albedo_map_triplanar else 0)
-            self.shader.set_uniform('uRoughnessMetallicMapTriplanar', 1 if mat.roughness_metallic_triplanar else 0)
-
-            self.shader.set_uniform('uAlbedoMapOn', 1 if mat.albedo_map else 0)
-            self.shader.set_uniform('uRoughnessMetallicMapOn', 1 if mat.roughness_metallic_map else 0)
-
-            slot = 0
-            if mat.albedo_map:
-                self.sampler.bind(slot)
-                mat.albedo_map.bind(slot)
-                self.shader.set_uniform('uAlbedoMap', slot)
-                slot += 1
-            
-            if mat.roughness_metallic_map:
-                self.sampler.bind(slot)
-                mat.roughness_metallic_map.bind(slot)
-                self.shader.set_uniform('uRoughnessMetallicMap', slot)
-                slot += 1
-
-            model.mesh.draw(model.mesh_primitive, model.mesh_vertex_count, model.mesh_vertex_offset)
-
-        self.gbuffer.unbind()
-
-        Utils.pop_enable_state()
-
-
-class LightingPass(Pass):
-    def __init__(self, gbuffer: RenderTarget):
-        super().__init__(1)
-
-        self.shader = ShaderCache.get('_lighting')
-        if not self.shader.linked:
-            self.shader.add_shader_from_file(f'{assets}/shaders/lighting.vert', GL_VERTEX_SHADER)
-            self.shader.add_shader_from_file(f'{assets}/shaders/lighting.frag', GL_FRAGMENT_SHADER)
-            self.shader.link()
-
-        self.gbuffer = gbuffer
         self.env_map: TextureCubeMap = None
-
-        envBRDF_gen = ImageBasedLightingBRDFLUT(512, 512)
-        self.env_brdf = envBRDF_gen.process()
+        self.env_brdf = ImageBasedLightingBRDFLUT(512, 512).process()
 
         self.linear_sampler = Sampler()
         self.linear_sampler.filter()
@@ -119,8 +70,51 @@ class LightingPass(Pass):
         self.near_sampler.filter(GL_NEAREST, GL_NEAREST)
         self.near_sampler.wrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE)
 
-    def on_render(self, models: List[Model], proj: Matrix4, view: Matrix4):
-        self.shader.use()
+    def _pass_gbuffer(self):
+        Utils.push_enable_state([ GL_DEPTH_TEST, GL_CULL_FACE ])
+
+        self.gbuffer.bind()
+        glClearColor(0.0, 0.0, 0.0, 1.0)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+        self.gbuffer_shader.use()
+
+        self.gbuffer_shader.set_uniform_vector('uProjection', self.projection_matrix)
+        self.gbuffer_shader.set_uniform_vector('uView', self.view_matrix.inverse())
+
+        for model in self._models:
+            self.gbuffer_shader.set_uniform_vector('uModel', model.transform.to_matrix4())
+            model.material.on_apply(self.gbuffer_shader)
+
+            mat: PBRMaterial = model.material
+
+            self.gbuffer_shader.set_uniform('uAlbedoMapTriplanar', 1 if mat.albedo_map_triplanar else 0)
+            self.gbuffer_shader.set_uniform('uRoughnessMetallicMapTriplanar', 1 if mat.roughness_metallic_triplanar else 0)
+
+            self.gbuffer_shader.set_uniform('uAlbedoMapOn', 1 if mat.albedo_map else 0)
+            self.gbuffer_shader.set_uniform('uRoughnessMetallicMapOn', 1 if mat.roughness_metallic_map else 0)
+
+            slot = 0
+            if mat.albedo_map:
+                self.sampler.bind(slot)
+                mat.albedo_map.bind(slot)
+                self.gbuffer_shader.set_uniform('uAlbedoMap', slot)
+                slot += 1
+            
+            if mat.roughness_metallic_map:
+                self.sampler.bind(slot)
+                mat.roughness_metallic_map.bind(slot)
+                self.gbuffer_shader.set_uniform('uRoughnessMetallicMap', slot)
+                slot += 1
+
+            model.mesh.draw(model.mesh_primitive, model.mesh_vertex_count, model.mesh_vertex_offset)
+
+        self.gbuffer.unbind()
+
+        Utils.pop_enable_state()
+
+    def _pass_lighting(self):
+        self.lighting_shader.use()
 
         self.gbuffer.color_attachments[0].bind(0)
         self.gbuffer.color_attachments[1].bind(1)
@@ -139,23 +133,20 @@ class LightingPass(Pass):
 
         self.linear_sampler.bind(4)
 
-        self.shader.set_uniform('uGB_Albedo', 0)
-        self.shader.set_uniform('uGB_Normals', 1)
-        self.shader.set_uniform('uGB_Positions', 2)
-        self.shader.set_uniform('uGB_Material', 3)
+        self.lighting_shader.set_uniform('uGB_Albedo', 0)
+        self.lighting_shader.set_uniform('uGB_Normals', 1)
+        self.lighting_shader.set_uniform('uGB_Positions', 2)
+        self.lighting_shader.set_uniform('uGB_Material', 3)
 
-        self.shader.set_uniform('uEnvMap', 4)
-        self.shader.set_uniform('uEnvBRDF', 5)
+        self.lighting_shader.set_uniform('uEnvMap', 4)
+        self.lighting_shader.set_uniform('uEnvBRDF', 5)
 
-        self.shader.set_uniform_vector('uEyePosition', view.to_transform().translation)
+        self.lighting_shader.set_uniform_vector('uEyePosition', self.view_matrix.to_transform().translation)
 
         glClear(GL_COLOR_BUFFER_BIT)
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, ctypes.c_void_p(0))
 
-
-class DeferredRenderer(Renderer):
-    def __init__(self, view_width: int, view_height: int):
-        super().__init__(view_width, view_height)
-
-        self.add_pass('gbuffer', GBufferPass(view_width, view_height))
-        self.add_pass('lighting', LightingPass(self.get_pass('gbuffer').gbuffer))
+    def render(self):
+        self._pass_gbuffer()
+        self._pass_lighting()
+        self.flush()

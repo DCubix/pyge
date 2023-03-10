@@ -4,7 +4,7 @@ from pyge.application import Application
 from pyge.rendering import Mesh, Shader, TextureCubeMap, PrefilteredCubeMap, Texture2D, Utils, Model
 from pyge.vmath import Matrix4, Vector3, Vector2, Transform, Quaternion
 
-from deferred_renderer import PBRMaterial, DeferredRenderer, GBufferPass
+from deferred_renderer import PBRMaterial, DeferredRenderer
 
 import math, pygame, random
 import numpy as np
@@ -54,10 +54,8 @@ class App(Application):
         self.shader.add_shader_from_file(f'{assets}/shaders/default.frag', GL_FRAGMENT_SHADER)
         self.shader.link()
 
-        self.env_map = TextureCubeMap.from_file(f'{assets}/cubemap1.jpg')
-
-        prefilterer = PrefilteredCubeMap(self.env_map)
-        self.env_map = prefilterer.process()
+        env_map = TextureCubeMap.from_file(f'{assets}/cubemap1.jpg')
+        self.renderer.env_map = PrefilteredCubeMap(env_map).process()
     
     def on_update(self, deltaTime: float):
         self.rotation += deltaTime
@@ -65,9 +63,6 @@ class App(Application):
     def on_draw(self):
         self.renderer.view_matrix = self.camera.to_matrix4()
         self.renderer.projection_matrix = self.projection
-        
-        lighting_pass = self.renderer.get_pass('lighting')
-        lighting_pass.env_map = self.env_map
 
         count = self.sphere_count
         div_count = (count-1) if count > 1 else 1
@@ -90,15 +85,15 @@ class App(Application):
         glClearColor(0.0, 0.0, 0.0, 0.0)
         self.renderer.render()
 
-        gbuffer_pass: GBufferPass = self.renderer.get_pass('gbuffer')
+        gbuffer = self.renderer.gbuffer
 
         q = 1.0 / 4.0
         y = 0.0
         for i in range(4):
-            Utils.draw_quad(gbuffer_pass.gbuffer.color_attachments[i], i*q, 0.0, q, q)
+            Utils.draw_quad(gbuffer.color_attachments[i], i*q, 0.0, q, q)
         y += q
 
-        Utils.draw_quad(gbuffer_pass.gbuffer.depth_attachment, 0.0, y, q, q)
+        Utils.draw_quad(gbuffer.depth_attachment, 0.0, y, q, q)
 
 if __name__ == '__main__':
     App().run()
