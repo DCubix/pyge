@@ -114,6 +114,10 @@ class DeferredRenderer(Renderer):
         Utils.pop_enable_state()
 
     def _pass_lighting(self):
+        Utils.push_enable_state([ GL_BLEND ])
+
+        glBindVertexArray(Utils.get_dummy_vao())
+
         self.lighting_shader.use()
 
         self.gbuffer.color_attachments[0].bind(0)
@@ -144,7 +148,42 @@ class DeferredRenderer(Renderer):
         self.lighting_shader.set_uniform_vector('uEyePosition', self.view_matrix.to_transform().translation)
 
         glClear(GL_COLOR_BUFFER_BIT)
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, ctypes.c_void_p(0))
+
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+        # ambient mode
+        self.lighting_shader.set_uniform('uLightingMode', 0)
+        glDrawArrays(GL_TRIANGLES, 0, 6)
+
+        # lights mode
+        self.lighting_shader.set_uniform('uLightingMode', 1)
+
+        glBlendFunc(GL_ONE, GL_ONE)
+        for light in self._lights:
+            light.apply(self.lighting_shader, 'uLight')
+            glDrawArrays(GL_TRIANGLES, 0, 6)
+        
+        Utils.pop_enable_state()
+        glBindVertexArray(0)
+
+        if self.env_map:
+            Utils.push_enable_state([ GL_CULL_FACE, GL_DEPTH_TEST ])
+            glClear(GL_DEPTH_BUFFER_BIT)
+
+            # blit depth
+            self.gbuffer.bind_read()
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0)
+            glBlitFramebuffer(
+                0, 0, self.view_width, self.view_height,
+                0, 0, self.view_width, self.view_height,
+                GL_DEPTH_BUFFER_BIT, GL_NEAREST
+            )
+            self.gbuffer.unbind()
+
+            glCullFace(GL_FRONT)
+            Utils.draw_cube(self.env_map, self.projection_matrix, self.view_matrix)
+            glCullFace(GL_BACK)
+            Utils.pop_enable_state()
 
     def render(self):
         self._pass_gbuffer()

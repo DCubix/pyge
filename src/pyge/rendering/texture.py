@@ -175,17 +175,19 @@ class TextureCubeMap(Texture):
             return img.crop(area)
         
         indices = [
-            (3, 1, TextureCubeMap.POSITIVE_X),
-            (1, 1, TextureCubeMap.NEGATIVE_X),
-            (1, 0, TextureCubeMap.POSITIVE_Y),
-            (1, 2, TextureCubeMap.NEGATIVE_Y),
-            (2, 1, TextureCubeMap.POSITIVE_Z),
-            (0, 1, TextureCubeMap.NEGATIVE_Z)
+            (3, 1, TextureCubeMap.POSITIVE_X, None),
+            (1, 1, TextureCubeMap.NEGATIVE_X, None),
+            (1, 0, TextureCubeMap.POSITIVE_Y, Image.ROTATE_270),
+            (1, 2, TextureCubeMap.NEGATIVE_Y, Image.ROTATE_90),
+            (2, 1, TextureCubeMap.POSITIVE_Z, None),
+            (0, 1, TextureCubeMap.NEGATIVE_Z, None)
         ]
 
         tex = TextureCubeMap(tw, th, GL_RGB8, TextureCubeMap.DEFAULT_MIPS)
-        for x, y, face in indices:
-            subimg = slice(x, y).transpose(Image.FLIP_TOP_BOTTOM)
+        for x, y, face, xpose in indices:
+            subimg = slice(x, y)
+            if xpose:
+                subimg = subimg.transpose(xpose)
             tex.update_face(face, np.array(subimg, dtype=np.uint8), GL_RGB, GL_UNSIGNED_BYTE)
         tex.generate_mipmaps()
         

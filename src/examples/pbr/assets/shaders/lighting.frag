@@ -1,7 +1,14 @@
 #version 460
 out vec4 fragColor;
 
-const vec3 lightVector = vec3(1.0, 1.0, 1.0); // temporary
+struct Light {
+    int type; // 0 = directional, 1 = point, 2 = spot
+    vec4 color; // r, g, b, intensity
+    vec3 position;
+    vec3 direction;
+    float radius;
+    float cutoff;
+};
 
 uniform sampler2D uGB_Albedo;
 uniform sampler2D uGB_Normals;
@@ -12,6 +19,9 @@ uniform samplerCube uEnvMap;
 uniform sampler2D uEnvBRDF;
 
 uniform vec3 uEyePosition;
+
+uniform int uLightingMode; // 0 = Ambient (IBL), 1 = Lights
+uniform Light uLight;
 
 in vec2 vUV;
 
@@ -68,6 +78,55 @@ vec3 iblLighting(vec3 N, vec3 R, float NdV, vec3 baseColor, float roughness, flo
     return Kd * diffuse + specular; // * ao
 }
 
+// Source: https://lisyarus.github.io/blog/graphics/2022/07/30/point-light-attenuation.html
+float sqr(float x) {
+	return x * x;
+}
+
+float attenuateNoCusp(float distance, float radius, float max_intensity, float falloff) {
+	float s = distance / radius;
+
+	if (s >= 1.0)
+		return 0.0;
+
+	float s2 = sqr(s);
+
+	return max_intensity * sqr(1 - s2) / (1 + falloff * s2);
+}
+
+void calculateDirectionalLight(Light light, out vec3 L, out float attenuation) {
+    L = normalize(-light.direction);
+    attenuation = 1.0;
+}
+
+void calculatePointLight(Light light, vec3 wP, out vec3 L, out float attenuation) {
+    L = light.position - wP;
+    
+    float dist = length(L);
+    L = normalize(L);
+
+    attenuation = attenuateNoCusp(dist, light.radius, 1.0, 0.65);
+}
+
+void calculateSpotLight(Light light, vec3 wP, out vec3 L, out float attenuation) {
+    calculatePointLight(light, wP, L, attenuation);
+
+    float S = dot(L, normalize(-light.direction));
+    float c = cos(light.cutoff);
+    if (S > c) {
+        attenuation *= (1.0 - (1.0 - S) * 1.0 / (1.0 - c));
+    }
+}
+
+void calculateLight(Light light, vec3 wP, out vec3 L, out float attenuation) {
+    switch (light.type) {
+        case 0: calculateDirectionalLight(light, L, attenuation); break;
+        case 1: calculatePointLight(light, wP, L, attenuation); break;
+        case 2: calculateSpotLight(light, wP, L, attenuation); break;
+        default: break;
+    }
+}
+
 vec3 ACES(vec3 x) {
     float a = 2.51;
     float b = 0.03;
@@ -90,8 +149,6 @@ void main() {
     vec3 N = normalize(rN * 2.0 - 1.0);
 
     vec3 V = normalize(uEyePosition - rP);
-    vec3 L = normalize(lightVector);
-    vec3 H = normalize(V + L);
     vec3 R = reflect(-V, N);
     
     float roughness = rM.x;
@@ -99,31 +156,36 @@ void main() {
     vec3 baseColor = sRGBToLinear(rA.rgb * rA.a);
     vec3 f0 = mix(vec3(0.04), baseColor, metallic);
 
-    float NdL = max(dot(N, L), 0.0);
-    float NdV = max(dot(N, V), 1e-5);
-    float NdH = max(dot(N, H), 1e-5);
-    float HdV = max(dot(H, V), 1e-5);
+    if (uLightingMode == 0) {
+        float NdV = max(dot(N, V), 1e-5);
+        fragColor.rgb = iblLighting(N, R, NdV, baseColor, roughness, metallic);
+    } else if (uLightingMode == 1) {
+        vec3 L = vec3(0.0);
+        float attenuation = 1.0;
+        calculateLight(uLight, rP, L, attenuation);
 
-    vec3 Lo = iblLighting(N, R, NdV, baseColor, roughness, metallic);
+        vec3 H = normalize(V + L);
 
-    // lighting
-    vec3 Ffact = F(NdV, f0);
-    vec3 Ks = Ffact;
-    vec3 Kd = (1.0 - Ks) * (1.0 - metallic);
-    
-    vec3 NDFG = cookTorranceSpecular(NdL, NdH, NdV, f0, roughness);
-    vec3 numerator    = NDFG * Ffact;
-    float denominator = max(4.0 * NdV * NdL, 1e-5);
-    vec3 specular     = numerator / denominator;  
+        float NdL = max(dot(N, L), 0.0);
+        float NdV = max(dot(N, V), 1e-5);
+        float NdH = max(dot(N, H), 1e-5);
+        // float HdV = max(dot(H, V), 1e-5);
+
+        vec3 Ffact = F(NdV, f0);
+        vec3 Ks = Ffact;
+        vec3 Kd = (1.0 - Ks) * (1.0 - metallic);
         
-    // add to outgoing radiance Lo          
-    Lo += (Kd * baseColor * LAMBERT + specular) /* TODO: Light color * radiance */ * NdL;
-
+        vec3 NDFG = cookTorranceSpecular(NdL, NdH, NdV, f0, roughness);
+        vec3 numerator    = NDFG * Ffact;
+        float denominator = max(4.0 * NdV * NdL, 1e-5);
+        vec3 specular     = numerator / denominator;  
+            
+        // add to outgoing radiance Lo 
+        float fact = NdL * uLight.color.a * attenuation;
+        fragColor.rgb = (Kd * baseColor * LAMBERT + specular) * uLight.color.rgb * fact;
+    }
     // gamma correct
-    vec3 color = Lo; // TODO: color is going to be ambient + Lo
-
-    color = ACES(color);
-    color = pow(color, vec3(1.0/2.2)); 
-
-    fragColor = vec4(color, 1.0);
+    fragColor.rgb = ACES(fragColor.rgb);
+    fragColor.rgb = pow(fragColor.rgb, vec3(1.0/2.2)); 
+    fragColor.a = 1.0;
 }

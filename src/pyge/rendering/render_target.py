@@ -36,11 +36,12 @@ class RenderTarget:
         glBindFramebuffer(self._tmp_target, 0)
         glViewport(*self._tmp_viewport)
 
+    def read_buffer(self, attachment: GLenum):
+        glNamedFramebufferReadBuffer(self.id, attachment)
+
     def bind_read(self):
         self._tmp_target = GL_READ_FRAMEBUFFER
-        self._tmp_viewport = glGetIntegerv(GL_VIEWPORT)
         glBindFramebuffer(GL_READ_FRAMEBUFFER, self.id)
-        glViewport(0, 0, self.size[0], self.size[1])
     
     def bind_write(self):
         self._tmp_target = GL_DRAW_FRAMEBUFFER
