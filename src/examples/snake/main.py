@@ -18,6 +18,9 @@ class App(Application):
     def __init__(self):
         self.setup(opengl=True, size=(1280, 720))
 
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_BLEND)
+
         self.font = Font(f'{pyge_import.assets_folder}/allegro.ttf')
 
         self.snake_body_mesh = Mesh.from_wavefront(f'{pyge_import.assets_folder}/snake_body.obj')['mesh']
