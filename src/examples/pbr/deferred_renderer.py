@@ -168,6 +168,7 @@ class DeferredRenderer(Renderer):
 
         if self.env_map:
             Utils.push_enable_state([ GL_CULL_FACE, GL_DEPTH_TEST ])
+            glDepthFunc(GL_LEQUAL)
             glClear(GL_DEPTH_BUFFER_BIT)
 
             # blit depth
