@@ -1,4 +1,5 @@
 import math
+from typing import Any
 
 __all__ = [
     'Vector3', 'Matrix4', 'Quaternion', 'Transform',
@@ -101,7 +102,6 @@ class Vector3(object):
     @property
     def raw(self):
         return [self.x, self.y, self.z]
-
 
 class Matrix4(object):
     """Column major matrix4.
@@ -425,7 +425,6 @@ class Matrix4(object):
             self.m30, self.m31, self.m32, self.m33
         ]
 
-
 class Quaternion(object):
     __slots__ = ('w', 'x', 'y', 'z')
 
@@ -711,13 +710,29 @@ class Quaternion(object):
     def __repr__(self):
         return 'Quaternion({:0.4f}, {:0.4f}, {:0.4f}, {:0.4f})'.format(self.w, self.x, self.y, self.z)
 
-
 class Transform(object):
-    __slots__ = ('translation', 'rotation', 'scale')
+    __slots__ = ('translation', 'rotation', 'scale', '_old_translation', '_old_rotation', '_old_scale')
     def __init__(self, translation=Vector3(0.0, 0.0, 0.0), rotation=Quaternion(), scale=Vector3(1.0, 1.0, 1.0)):
         self.translation: Vector3 = translation.copy()
         self.rotation: Quaternion = rotation.copy()
         self.scale: Vector3 = scale.copy()
+
+        self._old_translation: Vector3 = translation.copy()
+        self._old_rotation: Vector3 = rotation.copy()
+        self._old_scale: Vector3 = scale.copy()
+
+    def has_changed(self):
+        changed = False
+        if self.translation != self._old_translation:
+            changed = True
+            self._old_translation = self.translation.copy()
+        if self.scale != self._old_scale:
+            changed = True
+            self._old_scale = self.scale.copy()
+        if self.rotation != self._old_rotation:
+            changed = True
+            self._old_rotation = self.rotation.copy()
+        return changed
 
     def transform_point(self, p):
         return self.to_matrix4().transform_point(p)
@@ -764,7 +779,6 @@ class Transform(object):
 
     def __repr__(self):
         return 'Transform({}, {}, {})'.format(self.translation, self.rotation, self.scale)
-
 
 class Vector2:
     __slots__ = ('x', 'y')
@@ -837,7 +851,6 @@ class Vector2:
     @property
     def raw(self):
         return [self.x, self.y]
-
 
 class Vector4:
     __slots__ = ('x', 'y', 'z', 'w')
@@ -916,7 +929,6 @@ class Vector4:
 
     def __repr__(self):
         return 'Vector4({:0.4f}, {:0.4f}, {:0.4f}, {:0.4f})'.format(self.x, self.y, self.z, self.w)
-
 
 class Ray:
     __slots__ = ('position', 'direction')

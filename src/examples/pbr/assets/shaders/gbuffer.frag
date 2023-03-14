@@ -56,9 +56,9 @@ void main() {
 
     if (uAlbedoMapOn) {
         if (uAlbedoMapTriplanar) {
-            oAlbedo = triplanarMapping(uAlbedoMap, P, fsIn.normal);
+            oAlbedo *= triplanarMapping(uAlbedoMap, P, fsIn.normal);
         } else {
-            oAlbedo = texture(uAlbedoMap, fsIn.uv).rgb;
+            oAlbedo *= texture(uAlbedoMap, fsIn.uv).rgb;
         }
     }
 

@@ -1,16 +1,33 @@
 import pyge_import
 
+from pyge.core import GameObject
 from pyge.application import Application
 from pyge.rendering import Mesh, Shader, TextureCubeMap, PrefilteredCubeMap, Texture2D, Utils, Model, PointLight
 from pyge.vmath import Matrix4, Vector3, Vector2, Transform, Quaternion, Vector4
 
-from deferred_renderer import PBRMaterial, DeferredRenderer
+from deferred_renderer import PBRMaterial, DeferredRenderer, Renderer
 
 import math, random, colorsys
 import numpy as np
 from OpenGL.GL import *
 
 assets = pyge_import.assets_folder
+
+class Ball(GameObject):
+    def __init__(self, mesh: Mesh, mat: PBRMaterial):
+        super().__init__()
+        self.mesh = mesh
+        self.material = mat
+        self.time = 0.0
+
+    def on_render(self, renderer: Renderer):
+        mod = Model(self.mesh, self.own_transform, self.material)
+        renderer.submit(mod)
+
+    def on_update(self, delta_time: float):
+        ang = math.sin(self.time * 2.0) * math.pi/6
+        self.transform.rotation = Quaternion.from_angle_axis(ang, Vector3(0, 1, 0))
+        self.time += delta_time
 
 class App(Application):
     def __init__(self):
@@ -26,7 +43,7 @@ class App(Application):
         self.projection = Matrix4.from_perspective(math.pi / 5, self.aspect, 0.01, 500.0)
 
         # Application-related        
-        self.test_mesh = Mesh.from_wavefront(f'{assets}/ball.obj')['mesh']
+        self.test_mesh = Mesh.from_wavefront(f'{assets}/monke.obj')['mesh']
         self.albedo_tex = Texture2D.from_image_file(f'{assets}/rust_albedo.png')
         self.rm_tex = Texture2D.from_image_file(f'{assets}/rust_roughness_metallic.png')
 
@@ -43,18 +60,28 @@ class App(Application):
             mat.roughness = rough
             mat.metallic = metal
             mat.base_color = Vector3(r, g, b)
-            #mat.albedo_map = self.albedo_tex
-            #mat.roughness_metallic_map = self.rm_tex
-            #mat.albedo_map_triplanar = True
-            #mat.roughness_metallic_triplanar = True
+            mat.albedo_map = self.albedo_tex
+            mat.roughness_metallic_map = self.rm_tex
+            mat.albedo_map_triplanar = True
+            mat.roughness_metallic_triplanar = True
             self.materials.append(mat)
+
+        # game object test
+        self.root = GameObject()
+
+        root = self.root
+        for i in range(8):
+            ob = Ball(self.test_mesh, self.materials[i])
+            ob.transform.translation.z = 2.5
+            root.add_child(ob)
+            root = ob
 
         self.shader = Shader()
         self.shader.add_shader_from_file(f'{assets}/shaders/default.vert', GL_VERTEX_SHADER)
         self.shader.add_shader_from_file(f'{assets}/shaders/default.frag', GL_FRAGMENT_SHADER)
         self.shader.link()
 
-        env_map = TextureCubeMap.from_file(f'{assets}/cubemap2.jpg')
+        env_map = TextureCubeMap.from_file(f'{assets}/cubemap1.jpg')
         self.renderer.env_map = PrefilteredCubeMap(env_map).process()
 
         self.light_positions: list[Vector3] = []
@@ -70,6 +97,8 @@ class App(Application):
             ))
     
     def on_update(self, deltaTime: float):
+        self.root.update(deltaTime)
+
         self.rotation += deltaTime
 
         for lp in self.light_positions:
@@ -87,23 +116,25 @@ class App(Application):
         self.renderer.view_matrix = self.camera.to_matrix4()
         self.renderer.projection_matrix = self.projection
 
-        count = self.sphere_count
-        div_count = (count-1) if count > 1 else 1
-        for y in range(count):
-            for x in range(count):
-                if count == 1:
-                    fx = 0.0
-                    fy = 0.0
-                else:
-                    fx = ((x / div_count) * 2.0 - 1.0) * (div_count+0.2)
-                    fy = ((y / div_count) * 2.0 - 1.0) * (div_count+0.2)
+        # count = self.sphere_count
+        # div_count = (count-1) if count > 1 else 1
+        # for y in range(count):
+        #     for x in range(count):
+        #         if count == 1:
+        #             fx = 0.0
+        #             fy = 0.0
+        #         else:
+        #             fx = ((x / div_count) * 2.0 - 1.0) * (div_count+0.2)
+        #             fy = ((y / div_count) * 2.0 - 1.0) * (div_count+0.2)
 
-                xform = Transform(translation=Vector3(fx, fy, 0.0))
+        #         xform = Transform(translation=Vector3(fx, fy, 0.0))
                 
-                self.renderer.submit(Model(
-                    self.test_mesh, xform,
-                    self.materials[x + y * count]
-                ))
+        #         self.renderer.submit(Model(
+        #             self.test_mesh, xform.to_matrix4(),
+        #             self.materials[x + y * count]
+        #         ))
+
+        self.root.render(self.renderer)
 
         # add lights
         for i in range(len(self.light_positions)):

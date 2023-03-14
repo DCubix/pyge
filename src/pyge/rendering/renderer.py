@@ -16,7 +16,7 @@ class Model:
     def __init__(
         self,
         mesh: Mesh,
-        xform: Transform,
+        xform: Matrix4,
         material: Material = Material(),
         primitive: GLenum=GL_TRIANGLES,
         count: int=-1,

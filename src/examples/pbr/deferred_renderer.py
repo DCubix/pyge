@@ -83,7 +83,7 @@ class DeferredRenderer(Renderer):
         self.gbuffer_shader.set_uniform_vector('uView', self.view_matrix.inverse())
 
         for model in self._models:
-            self.gbuffer_shader.set_uniform_vector('uModel', model.transform.to_matrix4())
+            self.gbuffer_shader.set_uniform_vector('uModel', model.transform)
             model.material.on_apply(self.gbuffer_shader)
 
             mat: PBRMaterial = model.material
