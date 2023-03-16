@@ -2,9 +2,9 @@ import pyge_import
 
 from typing import List
 from apple import Apple
-from pyge.application import Application
-from pyge.rendering import Mesh, Shader, Texture2D, Sampler, RenderTarget, Utils, Font
-from pyge.vmath import Matrix4, Vector3, Transform, Quaternion
+from pygex.application import Application
+from pygex.rendering import Mesh, Shader, Texture2D, Sampler, RenderTarget, Utils, Font
+from pygex.vmath import Matrix4, Vector3, Transform, Quaternion
 
 import math, pygame, random
 import numpy as np

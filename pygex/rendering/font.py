@@ -12,7 +12,7 @@ import sys, math
 from OpenGL.GL import *
 import OpenGL.images as images
 
-from pyge.vmath import Matrix4
+from pygex.vmath import Matrix4
 from .geometry import Mesh, VertexFormat
 from .texture import Texture2D, Sampler
 from .shader import Shader, ShaderCache

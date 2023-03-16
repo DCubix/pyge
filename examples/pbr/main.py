@@ -1,9 +1,9 @@
 import pyge_import
 
-from pyge.core import GameObject
-from pyge.application import Application
-from pyge.rendering import Mesh, Shader, TextureCubeMap, PrefilteredCubeMap, Texture2D, Utils, Model, PointLight
-from pyge.vmath import Matrix4, Vector3, Vector2, Transform, Quaternion, Vector4
+from pygex.core import GameObject
+from pygex.application import Application
+from pygex.rendering import Mesh, Shader, TextureCubeMap, PrefilteredCubeMap, Texture2D, Utils, Model, PointLight
+from pygex.vmath import Matrix4, Vector3, Vector2, Transform, Quaternion, Vector4
 
 from deferred_renderer import PBRMaterial, DeferredRenderer, Renderer
 

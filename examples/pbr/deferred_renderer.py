@@ -3,8 +3,8 @@ assets = pyge_import.assets_folder
 
 from typing import List
 
-from pyge.rendering import Renderer, Model, RenderTarget, Shader, ShaderCache, Material, Texture2D, Utils, Sampler, TextureCubeMap, ImageBasedLightingBRDFLUT
-from pyge.vmath import Matrix4, Vector3
+from pygex.rendering import Renderer, Model, RenderTarget, Shader, ShaderCache, Material, Texture2D, Utils, Sampler, TextureCubeMap, ImageBasedLightingBRDFLUT
+from pygex.vmath import Matrix4, Vector3
 
 from OpenGL.GL import *
 

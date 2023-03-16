@@ -4,7 +4,7 @@ import OpenGL.GL
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileShader, compileProgram
 
-from pyge.vmath import Vector2, Vector3, Vector4, Matrix4
+from pygex.vmath import Vector2, Vector3, Vector4, Matrix4
 
 class Shader:
 	def __init__(self):

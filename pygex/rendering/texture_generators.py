@@ -1,4 +1,4 @@
-from pyge.rendering import Shader, Texture2D, TextureCubeMap, Sampler
+from pygex.rendering import Shader, Texture2D, TextureCubeMap, Sampler
 from OpenGL.GL import *
 
 class GeneratorParams:

@@ -1,9 +1,9 @@
 import pyge_import
 
-from pyge.animation import ease_out_elastic, ease_in_out_cubic
-from pyge.animation import TargetAnimator, FloatInterpolator
-from pyge.rendering import Mesh, Texture2D, Shader
-from pyge.vmath import Vector3, Transform, Quaternion
+from pygex.animation import ease_out_elastic, ease_in_out_cubic
+from pygex.animation import TargetAnimator, FloatInterpolator
+from pygex.rendering import Mesh, Texture2D, Shader
+from pygex.vmath import Vector3, Transform, Quaternion
 
 class Apple:
     apple_mesh: Mesh = None
