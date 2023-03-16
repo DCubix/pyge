@@ -23,7 +23,6 @@ class Sampler:
     def bind(self, unit: int):
         glBindSampler(unit, self.id)
 
-
 class Texture:
     def __init__(self, dimensions: int, target: GLenum, internalFormat: GLenum):
         self.dimensions = dimensions
@@ -52,7 +51,6 @@ class Texture:
     def update(self, data: List, format: GLenum, type: GLenum):
         pass
 
-
 class Texture1D(Texture):
     def __init__(self, size: int, internalFormat: GLenum):
         super().__init__(1, GL_TEXTURE_1D, internalFormat)
@@ -64,7 +62,6 @@ class Texture1D(Texture):
 
     def update(self, data: npt.NDArray, format: GLenum, type: GLenum):
         glTextureSubImage1D(self.id, 0, 0, self.size[0], format, type, data)
-
 
 class Texture2D(Texture):
     def __init__(self, width: int, height: int, internalFormat: GLenum):
@@ -92,22 +89,6 @@ class Texture2D(Texture):
         tex.generate_mipmaps()
 
         return tex
-
-
-class Texture3D(Texture):
-    def __init__(self, width: int, height: int, depth: int, internalFormat: GLenum):
-        super().__init__(3, GL_TEXTURE_3D, internalFormat)
-        self.size[0] = width
-        self.size[1] = height
-        self.size[2] = depth
-        self.setup()
-    
-    def setup(self):
-        glTextureStorage3D(self.id, 1, self.internalFormat, self.size[0], self.size[1], self.size[2])
-
-    def update(self, data: npt.NDArray, format: GLenum, type: GLenum):
-        glTextureSubImage3D(self.id, 0, 0, 0, 0, self.size[0], self.size[1], self.size[2], format, type, data)
-
 
 class TextureCubeMap(Texture):
     POSITIVE_X = 0
