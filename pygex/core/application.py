@@ -6,6 +6,8 @@ from pygame.event import Event
 
 from OpenGL.GL import *
 
+from .input import InputHandler
+
 class Application:
     """Base application adapter. Your game should inherit from it."""
 
@@ -25,7 +27,7 @@ class Application:
             pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLEBUFFERS, 1)
             pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLESAMPLES, 8)
 
-        flags = (pygame.OPENGL | pygame.DOUBLEBUF) if opengl else 0
+        flags = (pygame.OPENGL | pygame.DOUBLEBUF) if opengl else (pygame.HWSURFACE | pygame.DOUBLEBUF)
         self.display: Surface = pygame.display.set_mode(size=size, flags=flags)
 
         if opengl:
@@ -36,6 +38,11 @@ class Application:
 
         pygame.display.flip()
         pygame.display.set_caption(title)
+
+        self.input = InputHandler(self.on_exit, self.on_event)
+
+        self._frames = 0
+        self._frame_time = 0
 
     def run(self, frameCap=60):
         timeStep = 1.0 / frameCap
@@ -52,19 +59,23 @@ class Application:
             startTime = currentTime
             unprocessed += delta
 
-            for event in pygame.event.get():
-                self.on_event(event)
-                if event.type == pygame.QUIT:
-                    running = self.on_exit()
-
             while unprocessed >= timeStep:
                 unprocessed -= timeStep
                 self.on_update(timeStep)
                 canRender = True
 
+                self._frame_time += timeStep
+                if self._frame_time >= 1.0:
+                    print(f'FPS: {self._frames}')
+                    self._frame_time = 0.0
+                    self._frames = 0
+
+            running = self.input.poll_events()
+
             if canRender:
                 self.on_draw()
                 pygame.display.flip()
+                self._frames += 1
 
         pygame.quit()
 

@@ -1,7 +1,7 @@
 import pyge_import
 
 from pygex.core import GameObject
-from pygex.application import Application
+from pygex.core.application import Application
 from pygex.rendering import Mesh, Shader, TextureCubeMap, PrefilteredCubeMap, Texture2D, Utils, Model, PointLight
 from pygex.vmath import Matrix4, Vector3, Vector2, Transform, Quaternion, Vector4
 

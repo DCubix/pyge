@@ -1,2 +1,2 @@
-from .application import Application
+from .core.application import Application
 from .vmath import *

@@ -2,7 +2,7 @@ import pyge_import
 
 from typing import List
 from apple import Apple
-from pygex.application import Application
+from pygex.core.application import Application
 from pygex.rendering import Mesh, Shader, Texture2D, Sampler, RenderTarget, Utils, Font
 from pygex.vmath import Matrix4, Vector3, Transform, Quaternion
 

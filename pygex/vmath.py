@@ -807,6 +807,12 @@ class Vector2:
         v = self.copy()
         v.normalize_self()
         return v
+    
+    def lerp(self, other, factor):
+        return Vector2(
+            scalar_lerp(self.x, other.x, factor),
+            scalar_lerp(self.y, other.y, factor)
+        )
 
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
@@ -820,6 +826,8 @@ class Vector2:
         return self
 
     def __mul__(self, n):
+        if isinstance(n, Vector2):
+            return Vector2(self.x * n.x, self.y * n.y)
         return Vector2(self.x * n, self.y * n)
 
     def __imul__(self, n):
