@@ -1,4 +1,4 @@
-VERSION = '0.1.6'
+VERSION = '0.1.7'
 
 from setuptools import setup, find_packages, Command
 import shutil, glob, os
