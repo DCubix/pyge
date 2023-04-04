@@ -59,9 +59,9 @@ class Application:
             startTime = currentTime
             unprocessed += delta
 
-            running = self.input.poll_events()
-
             while unprocessed >= timeStep:
+                running = self.input.poll_events()
+                
                 unprocessed -= timeStep
                 self.on_update(timeStep)
                 canRender = True

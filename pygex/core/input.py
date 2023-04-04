@@ -8,6 +8,9 @@ class DeviceButtonState:
         self.released = False
         self.held = False
 
+    def __repr__(self):
+        return f'DeviceButtonState(P:{self.pressed}, R:{self.released}, H:{self.held})'
+
 class DeviceState:
     def __init__(self):
         self.state: Dict[int, DeviceButtonState] = {}
@@ -27,9 +30,9 @@ class DeviceState:
         return self.get_state(button).held
 
     def reset(self):
-        for _, v in self.state.items():
-            v.pressed = False
-            v.released = False
+        for k in self.state.keys():
+            self.state[k].pressed = False
+            self.state[k].released = False
 
 class InputHandler:
     def __init__(self, on_exit_message: Callable[[], bool]=None, on_event: Callable[[Event], None]=None):
@@ -68,10 +71,9 @@ class InputHandler:
                 state.held = False
             elif event.type == pygame.MOUSEMOTION:
                 self.mouse_position = event.pos
+            elif event.type == pygame.QUIT:
+                running = self.on_exit() if self.on_exit else False
 
             if self.on_event: self.on_event(event)
-
-            if event.type == pygame.QUIT:
-                running = self.on_exit() if self.on_exit else False
         
         return running
