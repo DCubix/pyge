@@ -59,6 +59,8 @@ class Application:
             startTime = currentTime
             unprocessed += delta
 
+            running = self.input.poll_events()
+
             while unprocessed >= timeStep:
                 unprocessed -= timeStep
                 self.on_update(timeStep)
@@ -69,8 +71,6 @@ class Application:
                     print(f'FPS: {self._frames}')
                     self._frame_time = 0.0
                     self._frames = 0
-
-            running = self.input.poll_events()
 
             if canRender:
                 self.on_draw()
